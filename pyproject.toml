@@ -1,0 +1,25 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [
+  "hatchling >=1.12.2",
+  "hatch-vcs >=0.2.0",
+]
+
+[project]
+dependencies = [
+  "conda >=24",
+  "installer",
+]
+description = "Conda plugin to add support for installing Python wheels (whl)."
+version = "0.0.1"
+name = "conda-whl-support"
+requires-python = ">=3.9"
+
+[project.entry-points.conda]
+conda-anaconda-tos = "conda_whl_support.plugin"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src/conda_whl_support",
+  "/pyproject.toml",
+]
