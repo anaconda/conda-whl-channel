@@ -15,6 +15,6 @@ def extract_whl_or_tarball(
     else:
         return extract_tarball(
             source_full_path,
-            target_full_path=target_full_path,
+            target_full_path,
             progress_update_callback=progress_update_callback
         )
