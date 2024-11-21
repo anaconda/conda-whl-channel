@@ -1,3 +1,5 @@
+import codecs
+import json
 import os
 from os import PathLike
 
@@ -11,10 +13,18 @@ import installer.utils
 from typing import Literal, BinaryIO, Iterable, Tuple
 
 
-from conda.gateways.disk.create import write_as_json_to_file
-
-
 SUPPORTED_SCEMES: Tuple[Scheme] = ("platlib", "purelib")
+
+
+# inline version of
+#from conda.gateways.disk.create import write_as_json_to_file
+def write_as_json_to_file(file_path, obj):
+    with codecs.open(file_path, mode="wb", encoding="utf-8") as fo:
+        json_str = json.dumps(
+            obj, indent=2, sort_keys=True, separators=(",", ": "),
+        )
+        fo.write(json_str)
+
 
 class MyWheelDestination(WheelDestination):
 
