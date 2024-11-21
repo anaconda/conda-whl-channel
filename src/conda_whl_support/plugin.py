@@ -19,11 +19,16 @@ def add_whl_support(command: str) -> None:
     import conda.common.path
     conda.common.path.KNOWN_EXTENSIONS = (".conda", ".tar.bz2", ".json", ".jlap", ".json.zst", ".whl")
 
-    # Patch the extract method of the ExtractPackageAction
-    from conda.core.path_actions import ExtractPackageAction
-    if ExtractPackageAction.execute.__module__ != __name__:
-        from .patched_method import execute
-        ExtractPackageAction.execute = execute
+    # Patch the extract_tarball function
+    # Add support for extracting wheels with in-line creation of conda metadata files
+    import conda.core.path_actions
+    if conda.core.path_actions.extract_tarball.__module__ != __name__:
+        from .extract_whl_or_tarball import extract_tarball_or_whl
+        import functools
+        conda.core.path_actions.extract_tarball = functools.partial(
+            extract_tarball_or_whl,
+            conda.core.path_actions.extract_tarball
+        )
 
     # Allow the creation of prefix record JSON files for .whl files
     import conda.core.prefix_data

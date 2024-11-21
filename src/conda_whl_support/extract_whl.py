@@ -98,6 +98,12 @@ class MyWheelDestination(WheelDestination):
         paths_json_path = os.path.join(self.target_full_path, "info", "paths.json")
         write_as_json_to_file(paths_json_path, paths_json_data)
 
+        # index.json
+        # index.json file is empty, the actual index metadata comes from repodata
+        index_json_data = {}
+        index_json_path = os.path.join(self.target_full_path, "info", "index.json")
+        write_as_json_to_file(index_json_path, index_json_data)
+
     def finalize_installation(self, scheme: Scheme, record_file_path: str, records: Iterable[Tuple[Scheme, RecordEntry]]) -> None:
         record_list = list(records)
         with installer.utils.construct_record_file(record_list, lambda x: None) as record_stream:
