@@ -12,7 +12,8 @@ conda create --prefix ./demo_env -c jjhelmus/label/conda_whl_support conda-whl-s
 Use this to install a wheel from a static demo repo:
 
 ```
-conda activate /Users/jhelmus/workspace/conda-whl-support/plugin/test_env
+conda activate ./demo_env
+./demo_env/bin/conda create --prefix test_env --channel https://jjhelmus.github.io/sample-whl-repo/repo imagesize
 ```
 
 This environment listing includes `imagesize` installed from the test channel:
