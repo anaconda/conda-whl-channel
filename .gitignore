@@ -1,4 +1,6 @@
 env
 dist
-test_env
+/*_env/
 sample_repo/noarch/.cache
+__pycache__/
+/tools/repo/
