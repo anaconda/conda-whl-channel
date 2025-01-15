@@ -4,6 +4,7 @@ import os
 import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
+import hashlib
 
 from pypi_simple import PyPISimple, ACCEPT_JSON_ONLY
 
@@ -12,9 +13,14 @@ from packaging.metadata import parse_email, Metadata
 from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 
+
 #if TYPE_CHECKING:
 from typing import Optional, Dict, Any
 from pypi_simple import DistributionPackage
+from packaging.markers import Marker
+
+
+HASH_LENGTH = 7  # git --short default
 
 
 logger = logging.getLogger()
@@ -30,6 +36,80 @@ def empty_repodata(subdir: str):
     }
 
 PY_TO_CONDA_NAME = {}
+
+MIRROR_OP = {
+    ">": "<=",
+    "<": ">=",
+    ">=": "<",
+    "<=": ">",
+    "==": "!=",
+    "!=": "==",
+}
+
+
+META_SHA = "be0549401f55baff6f70db0c85e1410ab5ce92b9b865ddda788de5b2ab744d03"
+META_SIZE = 161
+META_PKGS = {}
+
+
+def register_metapackages(pkg_name, pos_deps, neg_deps):
+    pos_pkg_name = f"{pkg_name}-1.1-true_1.tar.bz2"
+    META_PKGS[pos_pkg_name] = {
+      "build": "true_1",
+      "build_number": 1,
+      "depends": pos_deps,
+      "name": pkg_name,
+      "noarch": "generic",
+      "sha256": META_SHA,
+      "size": META_SIZE,
+      "subdir": "noarch",
+      "timestamp": 0,
+      "version": "1.1"
+    }
+    neg_pkg_name = f"{pkg_name}-0.1-false_0.tar.bz2"
+    META_PKGS[neg_pkg_name] = {
+      "build": "false_0",
+      "build_number": 0,
+      "depends": neg_deps,
+      "name": pkg_name,
+      "noarch": "generic",
+      "sha256": META_SHA,
+      "size": META_SIZE,
+      "subdir": "noarch",
+      "timestamp": 0,
+      "version": "0.1"
+    }
+
+
+def make_metapkgs(conda_dep: str, marker: Marker) -> str:
+    dep_hash = hashlib.sha1(conda_dep.encode()).hexdigest()[:HASH_LENGTH]
+    marker_hash = hashlib.sha1(str(marker).encode()).hexdigest()[:HASH_LENGTH]
+    meta_pkg_name = f"_c_{dep_hash}_{marker_hash}"
+    markers = marker._markers
+    if len(markers) != 1 or not isinstance(markers[0], tuple) or len(markers[0]) != 3:
+        # User De Morgan's laws to express:
+        # OR will produce two packages, one for each clause
+        # AND will produce a single package that depends on both clauses
+        raise NotImplementedError("complex marker")
+    variable, op, value = markers[0]
+    op = str(op)
+    nop = MIRROR_OP[op]
+    if str(variable) == "python_version":
+        positive_dep = f"python {op}{value}"
+        negative_dep = f"python {nop}{value}"
+        positive_deps = [positive_dep, conda_dep]
+        negative_deps = [negative_dep]
+        register_metapackages(meta_pkg_name, positive_deps, negative_deps)
+        return meta_pkg_name
+    elif str(variable) == "platform_system":
+        positive_dep = f"python {op}{value}"
+        negative_dep = f"python {nop}{value}"
+        positive_deps = [positive_dep, conda_dep]
+        negative_deps = [negative_dep]
+        register_metapackages(meta_pkg_name, positive_deps, negative_deps)
+
+    else:
+        breakpoint()
 
 
 # inline version of
@@ -57,8 +137,9 @@ def py_to_conda_req(req: Requirement, seen_py_names: set[str]) -> str:
         if any(isinstance(m, tuple) and str(m[0]) == "extra" for m in markers):
             logger.debug(f"skipping extra: {req}")
             return None
-        # TODO handle evaluation when possible (non-universal wheers)
-        logger.warning(f"including req with marker: '{req}'")
+        # TODO handle evaluation when possible (non-universal wheels)
+        conda_dep = make_metapkgs(conda_dep, req.marker)
+        #logger.warning(f"including req with marker: '{req}'")
     if req.extras:
         pass
         breakpoint()
@@ -243,7 +324,8 @@ def create_repodata(
 
     repodata = {}
     for platform in platforms:
-        packages = {pkg.filename: pkg.repodata_entry for pkg in conda_pkgs if pkg.subdir == platform}
+        packages = {k: v for k, v in META_PKGS.items() if v["subdir"] == platform}
+        packages.update({pkg.filename: pkg.repodata_entry for pkg in conda_pkgs if pkg.subdir == platform})
         subdir_data = empty_repodata(platform)
         subdir_data["packages"] = packages
         subdir_data["info"]["subdir"] = platform
