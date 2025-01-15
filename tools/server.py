@@ -21,6 +21,8 @@ def whl_pypi_url(filename):
 async def get_noarch_file(subdir: str, filename: str):
     if filename == "repodata.json":
         return FileResponse(f"repo/{subdir}/repodata.json")
+    elif filename.startswith("_c"):
+        return FileResponse(f"repo/sample-1.0-0.tar.bz2")
     elif filename.endswith(".whl"):
         try:
             url = whl_pypi_url(filename)
