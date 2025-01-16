@@ -48,8 +48,8 @@ MIRROR_OP = {
 }
 
 
-META_SHA_256: Optional[str] = None
-META_SIZE: Optional[int] = None
+META_SHA_256: Optional[str] = "31f456d67411418bce044e4be791e4f4490dff81065b9d83c8a42d6327fdacd0"
+META_SIZE: Optional[int] = 157
 META_PKGS = {}
 
 

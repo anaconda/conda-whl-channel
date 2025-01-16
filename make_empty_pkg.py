@@ -1,7 +1,7 @@
 import io
 import tarfile
 
-filename = "sample-2.0-0.tar.bz2"
+filename = "sample-1.0-0.tar.bz2"
 content = {
     "info/index.json": b'{}',
     "info/paths.json": b'{"paths":[],"paths_version":1}',
