@@ -128,7 +128,7 @@ def make_metapkgs(conda_dep: str, marker: Marker) -> str:
         register_metapackages(meta_pkg_name, positive_deps, negative_deps)
 
     else:
-        breakpoint()
+        raise NotImplementedError(f"unsupported marker: {marker}")
 
 
 # inline version of
@@ -163,8 +163,7 @@ def py_to_conda_req(req: Requirement, seen_py_names: set[str]) -> str:
         conda_dep = make_metapkgs(conda_dep, req.marker)
         # logger.warning(f"including req with marker: '{req}'")
     if req.extras:
-        pass
-        breakpoint()
+        raise NotImplementedError(f"extras not supported: {req}")
     seen_py_names.add(canonicalize_name(req.name))
     return conda_dep
 
@@ -283,8 +282,15 @@ class ProjectGenerator:
             return set(), []
 
         # TODO python 2 and ABI thats that have suffix (m, d)
-        assert abi_tag.startswith("cp3")
-        minor = int(abi_tag[3:])
+        if not abi_tag.startswith("cp3"):
+            raise NotImplementedError(f"unsupported abi: {abi_tag}")
+        try:
+            minor = abi_tag[3:]
+            minor = "".join(c for c in minor if c.isdigit())
+            minor = int(minor)
+        except ValueError as e:
+            print(f"could not parse {abi_tag} as int")
+            raise e
         depends_from_filename = [f"python >=3.{minor},<3.{minor+1}.0a0"]
         return supported_platforms, depends_from_filename
 
@@ -337,22 +343,25 @@ def create_repodata(
     conda_pkgs: list[CondaPackageMetadata] = []
 
     to_do_projects = set(specs.keys())
-    done_projects = set()
+    done_projects: set[str] = set()
 
     while to_do_projects:
         project = to_do_projects.pop()
         done_projects.add(project)
-        logger.info(f"creating repodata entries for project: {project}")
-        spec = specs.get(project)
-        gen = ProjectGenerator(client, project, platforms, spec)
-        conda_pkgs.extend(gen.conda_pkgs)
+        try:
+            logger.info(f"creating repodata entries for project: {project}")
+            spec = specs.get(project)
+            gen = ProjectGenerator(client, project, platforms, spec)
+            conda_pkgs.extend(gen.conda_pkgs)
 
-        logger.debug(f"projects visited: {gen.seen_py_names}")
-        if proc_dependencies:
-            for to_add in gen.seen_py_names:
-                if to_add not in done_projects:
-                    to_do_projects.add(to_add)
-        logger.debug(f"projects to visit: {to_do_projects}")
+            logger.debug(f"projects visited: {gen.seen_py_names}")
+            if proc_dependencies:
+                for to_add in gen.seen_py_names:
+                    if to_add not in done_projects:
+                        to_do_projects.add(to_add)
+            logger.debug(f"projects to visit: {to_do_projects}")
+        except Exception as e:
+            logger.error(f"error processing project {project}: {e}")
 
     repodata = {}
     for platform in platforms:
