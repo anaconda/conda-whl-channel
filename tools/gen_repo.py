@@ -3,6 +3,7 @@ import json
 import os
 import logging
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING
 import hashlib
 
@@ -47,12 +48,27 @@ MIRROR_OP = {
 }
 
 
-META_SHA = "be0549401f55baff6f70db0c85e1410ab5ce92b9b865ddda788de5b2ab744d03"
-META_SIZE = 161
+META_SHA_256: Optional[str] = None
+META_SIZE: Optional[int] = None
 META_PKGS = {}
 
 
+def get_file_sha_and_size(file_path):
+    sha256_hash = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+    file_size = os.path.getsize(file_path)
+    return sha256_hash.hexdigest(), file_size
+
+
 def register_metapackages(pkg_name, pos_deps, neg_deps):
+    global META_SHA_256, META_SIZE
+    if META_SHA_256 is None or META_SIZE is None:
+        project_path = Path(__file__).parent.parent / 'sample-1.0-0.tar.bz2'
+        if not project_path.exists():
+            raise FileNotFoundError(f"Could not find {project_path}")
+        META_SHA_256, META_SIZE = get_file_sha_and_size(project_path)
     pos_pkg_name = f"{pkg_name}-1.1-true_1.tar.bz2"
     META_PKGS[pos_pkg_name] = {
       "build": "true_1",
@@ -60,7 +76,7 @@ def register_metapackages(pkg_name, pos_deps, neg_deps):
       "depends": pos_deps,
       "name": pkg_name,
       "noarch": "generic",
-      "sha256": META_SHA,
+      "sha256": META_SHA_256,
       "size": META_SIZE,
       "subdir": "noarch",
       "timestamp": 0,
@@ -73,7 +89,7 @@ def register_metapackages(pkg_name, pos_deps, neg_deps):
       "depends": neg_deps,
       "name": pkg_name,
       "noarch": "generic",
-      "sha256": META_SHA,
+      "sha256": META_SHA_256,
       "size": META_SIZE,
       "subdir": "noarch",
       "timestamp": 0,

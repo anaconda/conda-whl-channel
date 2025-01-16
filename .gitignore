@@ -4,3 +4,4 @@ dist
 sample_repo/noarch/.cache
 __pycache__/
 /tools/repo/
+.env
