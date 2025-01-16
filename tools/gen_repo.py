@@ -16,7 +16,7 @@ from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 
 
-#if TYPE_CHECKING:
+# if TYPE_CHECKING:
 from typing import Optional, Dict, Any
 from pypi_simple import DistributionPackage
 from packaging.markers import Marker
@@ -36,6 +36,7 @@ def empty_repodata(subdir: str):
         "removed": [],
         "repodata_version": 1,
     }
+
 
 PY_TO_CONDA_NAME = {}
 
@@ -66,36 +67,36 @@ def get_file_sha_and_size(file_path):
 def register_metapackages(pkg_name, pos_deps, neg_deps):
     global META_SHA_256, META_SIZE
     if META_SHA_256 is None or META_SIZE is None:
-        project_path = Path(__file__).parent.parent / 'sample-1.0-0.tar.bz2'
+        project_path = Path(__file__).parent.parent / "sample-1.0-0.tar.bz2"
         if not project_path.exists():
             raise FileNotFoundError(f"Could not find {project_path}")
         META_SHA_256, META_SIZE = get_file_sha_and_size(project_path)
     short_hash = META_SHA_256[:8]
     pos_pkg_name = f"{pkg_name}-1.1-true_1_{short_hash}.tar.bz2"
     META_PKGS[pos_pkg_name] = {
-      "build": f"true_1_{short_hash}",
-      "build_number": 1,
-      "depends": pos_deps,
-      "name": pkg_name,
-      "noarch": "generic",
-      "sha256": META_SHA_256,
-      "size": META_SIZE,
-      "subdir": "noarch",
-      "timestamp": 0,
-      "version": "1.1"
+        "build": f"true_1_{short_hash}",
+        "build_number": 1,
+        "depends": pos_deps,
+        "name": pkg_name,
+        "noarch": "generic",
+        "sha256": META_SHA_256,
+        "size": META_SIZE,
+        "subdir": "noarch",
+        "timestamp": 0,
+        "version": "1.1",
     }
     neg_pkg_name = f"{pkg_name}-0.1-false_0_{short_hash}.tar.bz2"
     META_PKGS[neg_pkg_name] = {
-      "build": f"false_0_{short_hash}",
-      "build_number": 0,
-      "depends": neg_deps,
-      "name": pkg_name,
-      "noarch": "generic",
-      "sha256": META_SHA_256,
-      "size": META_SIZE,
-      "subdir": "noarch",
-      "timestamp": 0,
-      "version": "0.1"
+        "build": f"false_0_{short_hash}",
+        "build_number": 0,
+        "depends": neg_deps,
+        "name": pkg_name,
+        "noarch": "generic",
+        "sha256": META_SHA_256,
+        "size": META_SIZE,
+        "subdir": "noarch",
+        "timestamp": 0,
+        "version": "0.1",
     }
 
 
@@ -131,11 +132,14 @@ def make_metapkgs(conda_dep: str, marker: Marker) -> str:
 
 
 # inline version of
-#from conda.gateways.disk.create import write_as_json_to_file
+# from conda.gateways.disk.create import write_as_json_to_file
 def write_as_json_to_file(file_path: str, obj: Any):
     with codecs.open(file_path, mode="wb", encoding="utf-8") as fo:
         json_str = json.dumps(
-            obj, indent=2, sort_keys=True, separators=(",", ": "),
+            obj,
+            indent=2,
+            sort_keys=True,
+            separators=(",", ": "),
         )
         fo.write(json_str)
 
@@ -157,16 +161,17 @@ def py_to_conda_req(req: Requirement, seen_py_names: set[str]) -> str:
             return None
         # TODO handle evaluation when possible (non-universal wheels)
         conda_dep = make_metapkgs(conda_dep, req.marker)
-        #logger.warning(f"including req with marker: '{req}'")
+        # logger.warning(f"including req with marker: '{req}'")
     if req.extras:
         pass
         breakpoint()
     seen_py_names.add(canonicalize_name(req.name))
     return conda_dep
 
+
 @dataclass
 class CondaPackageMetadata:
-# https://docs.conda.io/projects/conda/en/stable/user-guide/concepts/pkg-specs.html
+    # https://docs.conda.io/projects/conda/en/stable/user-guide/concepts/pkg-specs.html
     build: str = "0"
     build_number: int = 0
     depends: list[str] = field(default_factory=list)
@@ -199,10 +204,15 @@ class CondaPackageMetadata:
         return entry
 
 
-
 class ProjectGenerator:
 
-    def __init__(self, client: PyPISimple, project:str, platforms: set[str], spec: SpecifierSet | None):
+    def __init__(
+        self,
+        client: PyPISimple,
+        project: str,
+        platforms: set[str],
+        spec: SpecifierSet | None,
+    ):
         self.client = client
         self.project = project
         self.platforms = platforms
@@ -218,17 +228,23 @@ class ProjectGenerator:
                 continue
             if pkg.version not in self.spec:
                 continue
-            support_platforms, depends_from_filename = self.info_from_filename(pkg.filename)
+            support_platforms, depends_from_filename = self.info_from_filename(
+                pkg.filename
+            )
             if support_platforms.isdisjoint(self.platforms):
                 logger.debug(f"Ignoring wheel for unsupported platform: {pkg.filename}")
                 continue
-            conda_pkg = self.repodata_for_pkg(pkg, support_platforms, depends_from_filename)
+            conda_pkg = self.repodata_for_pkg(
+                pkg, support_platforms, depends_from_filename
+            )
             conda_pkgs.extend(conda_pkg)
         return conda_pkgs
 
     def info_from_filename(self, filename: str) -> tuple[set[str], list[str]]:
         # https://peps.python.org/pep-0427/#file-name-convention
-        _, python_tag, abi_tag, platform_tag = filename.removesuffix(".whl").rsplit("-", maxsplit=3)
+        _, python_tag, abi_tag, platform_tag = filename.removesuffix(".whl").rsplit(
+            "-", maxsplit=3
+        )
         if abi_tag == "none" and platform_tag == "any":
             supported_platforms = set(["noarch"])
             depends_from_filename = []
@@ -237,7 +253,7 @@ class ProjectGenerator:
         supported_platforms = set()
         if "macosx" in platform_tag:
             if "universal2" in platform_tag:
-                #supported_platforms.add("osx-arm64")
+                # supported_platforms.add("osx-arm64")
                 supported_platforms.add("osx-64")
             if "universal" in platform_tag:
                 supported_platforms.add("osx-64")
@@ -273,11 +289,11 @@ class ProjectGenerator:
         return supported_platforms, depends_from_filename
 
     def repodata_for_pkg(
-            self,
-            pkg: DistributionPackage,
-            supported_platforms: set[str],
-            depends_from_filename: list[str],
-        ) -> list[CondaPackageMetadata]:
+        self,
+        pkg: DistributionPackage,
+        supported_platforms: set[str],
+        depends_from_filename: list[str],
+    ) -> list[CondaPackageMetadata]:
         raw_metadata = self.client.get_package_metadata(pkg)
         depends = list(depends_from_filename)
         mdata = Metadata.from_email(raw_metadata, validate=False)
@@ -291,7 +307,9 @@ class ProjectGenerator:
                 conda_dep = py_to_conda_req(py_req, self.seen_py_names)
                 if conda_dep:
                     depends.append(conda_dep)
-        _, python_tag, abi_tag, platform_tag = pkg.filename.removesuffix(".whl").rsplit("-", maxsplit=3)
+        _, python_tag, abi_tag, platform_tag = pkg.filename.removesuffix(".whl").rsplit(
+            "-", maxsplit=3
+        )
         build = f"{python_tag}_{abi_tag}_{platform_tag}"
         pkgs = []
         for subdir in supported_platforms:
@@ -310,14 +328,11 @@ class ProjectGenerator:
         return pkgs
 
 
-
-
-
 def create_repodata(
-        specs: dict[str, SpecifierSet],
-        platforms: set[str],
-        proc_dependencies: bool = False,
-    ) -> Dict[str, Dict[Any, Any]]:
+    specs: dict[str, SpecifierSet],
+    platforms: set[str],
+    proc_dependencies: bool = False,
+) -> Dict[str, Dict[Any, Any]]:
     client = PyPISimple(accept=ACCEPT_JSON_ONLY)
     conda_pkgs: list[CondaPackageMetadata] = []
 
@@ -342,7 +357,13 @@ def create_repodata(
     repodata = {}
     for platform in platforms:
         packages = {k: v for k, v in META_PKGS.items() if v["subdir"] == platform}
-        packages.update({pkg.filename: pkg.repodata_entry for pkg in conda_pkgs if pkg.subdir == platform})
+        packages.update(
+            {
+                pkg.filename: pkg.repodata_entry
+                for pkg in conda_pkgs
+                if pkg.subdir == platform
+            }
+        )
         subdir_data = empty_repodata(platform)
         subdir_data["packages"] = packages
         subdir_data["info"]["subdir"] = platform
@@ -355,6 +376,7 @@ def write_repodata(repodata: Dict[str, Dict[Any, Any]], repo_base_path: str):
         os.makedirs(f"{repo_base_path}/{platform}", exist_ok=True)
         write_as_json_to_file(f"{repo_base_path}/{platform}/repodata.json", subdir_data)
 
+
 def parse_requirements_file(file_path: Path) -> Dict[str, SpecifierSet]:
     specs = {}
     with open(file_path, "r") as f:
@@ -363,12 +385,31 @@ def parse_requirements_file(file_path: Path) -> Dict[str, SpecifierSet]:
             specs[req.name] = req.specifier
     return specs
 
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(description="Generate repository data.")
-    parser.add_argument("-r", "--requirements", type=str, required=True, help="Requirements.txt file which contains the packages to be generated")
-    parser.add_argument("--recurse", action="store_true", help="Recurse down through dependencies", default=False)
-    parser.add_argument("-p", "--platform", type=str, nargs='+', default=["osx-arm64", "noarch"], help="List of platforms to generate repodata for")
+    parser.add_argument(
+        "-r",
+        "--requirements",
+        type=str,
+        required=True,
+        help="Requirements.txt file which contains the packages to be generated",
+    )
+    parser.add_argument(
+        "--recurse",
+        action="store_true",
+        help="Recurse down through dependencies",
+        default=False,
+    )
+    parser.add_argument(
+        "-p",
+        "--platform",
+        type=str,
+        nargs="+",
+        default=["osx-arm64", "noarch"],
+        help="List of platforms to generate repodata for",
+    )
 
     args = parser.parse_args()
 
@@ -376,5 +417,7 @@ if __name__ == "__main__":
     if not file_path.exists():
         raise FileNotFoundError(f"Could not find {file_path}")
     specs = parse_requirements_file(file_path)
-    repodata = create_repodata(specs, set(args.platform), proc_dependencies=args.recurse)
+    repodata = create_repodata(
+        specs, set(args.platform), proc_dependencies=args.recurse
+    )
     write_repodata(repodata, "./repo")
