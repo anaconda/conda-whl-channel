@@ -57,7 +57,7 @@ Create repodata for flask and dependencies on macos-arm64:
 ```
 cd tools
 conda activate ../gen_env
-python gen_repo.py
+python gen_repo.py -r ../specs/flask.txt --recurse
 cd ..
 ```
 

@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 import hashlib
+import argparse
 
 from pypi_simple import PyPISimple, ACCEPT_JSON_ONLY
 
@@ -312,15 +313,14 @@ class ProjectGenerator:
 
 
 def create_repodata(
-        projects: list[str],
         specs: dict[str, SpecifierSet],
-        platforms: list[str],
+        platforms: set[str],
         proc_dependencies: bool = False,
     ) -> Dict[str, Dict[Any, Any]]:
     client = PyPISimple(accept=ACCEPT_JSON_ONLY)
     conda_pkgs: list[CondaPackageMetadata] = []
 
-    to_do_projects = set(projects)
+    to_do_projects = set(specs.keys())
     done_projects = set()
 
     while to_do_projects:
@@ -354,26 +354,26 @@ def write_repodata(repodata: Dict[str, Dict[Any, Any]], repo_base_path: str):
         os.makedirs(f"{repo_base_path}/{platform}", exist_ok=True)
         write_as_json_to_file(f"{repo_base_path}/{platform}/repodata.json", subdir_data)
 
+def parse_requirements_file(file_path: Path) -> Dict[str, SpecifierSet]:
+    specs = {}
+    with open(file_path, "r") as f:
+        for line in f:
+            req = Requirement(line.strip())
+            specs[req.name] = req.specifier
+    return specs
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    projects = [
-        "flask",
-        "imagesize"
-    ]
-    specs = {
-        "imagesize": SpecifierSet(">1.4"),
-        "markupsafe": SpecifierSet(">3.0.1"),
-        "flask": SpecifierSet(">3.0.4"),
-        'click': SpecifierSet("==8.1.7"),
-        'jinja2': SpecifierSet("==3.1.4"),
-        'blinker': SpecifierSet("==1.9.0"),
-        'importlib-metadata': SpecifierSet("==8.5.0"),
-        "werkzeug": SpecifierSet(">3.1.0"),
-        'itsdangerous': SpecifierSet("==2.2.0"),
-        "zipp": SpecifierSet("==3.21.0"),
-        "typing-extensions": SpecifierSet("==4.12.2"),
-    }
-    platforms = set(("osx-arm64", "noarch"))
-    repodata = create_repodata(projects, specs, platforms, proc_dependencies=True)
+    parser = argparse.ArgumentParser(description="Generate repository data.")
+    parser.add_argument("-r", "--requirements", type=str, required=True, help="Requirements.txt file which contains the packages to be generated")
+    parser.add_argument("--recurse", action="store_true", help="Recurse down through dependencies", default=False)
+    parser.add_argument("-p", "--platform", type=str, nargs='+', default=["osx-arm64", "noarch"], help="List of platforms to generate repodata for")
+
+    args = parser.parse_args()
+
+    file_path = Path(args.requirements)
+    if not file_path.exists():
+        raise FileNotFoundError(f"Could not find {file_path}")
+    specs = parse_requirements_file(file_path)
+    repodata = create_repodata(specs, set(args.platform), proc_dependencies=args.recurse)
     write_repodata(repodata, "./repo")
