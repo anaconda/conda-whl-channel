@@ -58,7 +58,6 @@ Create repodata for flask and dependencies on macos-arm64:
 cd tools
 conda activate ../gen_env
 python gen_repo.py -r ../specs/flask.txt --recurse
-cd ..
 ```
 
 Upload the repo files
@@ -72,9 +71,13 @@ WHEEL_SERVER_HOST="SERVER_URL"
 Where the server URL points to a server running https://github.com/intentionally-left-nil/conda_wheel_server
 
 Then, execute
-python upload_repo.py upload --channel=demo_flask
+`python upload.py repo --channel=demo_flask`
+
+Also ensure that your stub package has been uploaded to the server (only needs to be done once)
+`python upload.py stub ../sample-1.0-0.tar.bz2`
 
 Flask can now be installed from this repo:
+
 
 ```
 ./demo_env/bin/conda create --prefix test_env flask=3.1.0 python=3.13 --channel http://127.0.0.1:8000/repo

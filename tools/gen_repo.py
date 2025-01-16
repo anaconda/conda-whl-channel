@@ -49,8 +49,8 @@ MIRROR_OP = {
 }
 
 
-META_SHA_256: Optional[str] = "31f456d67411418bce044e4be791e4f4490dff81065b9d83c8a42d6327fdacd0"
-META_SIZE: Optional[int] = 157
+META_SHA_256: Optional[str] = None
+META_SIZE: Optional[int] = None
 META_PKGS = {}
 
 
@@ -70,9 +70,10 @@ def register_metapackages(pkg_name, pos_deps, neg_deps):
         if not project_path.exists():
             raise FileNotFoundError(f"Could not find {project_path}")
         META_SHA_256, META_SIZE = get_file_sha_and_size(project_path)
-    pos_pkg_name = f"{pkg_name}-1.1-true_1.tar.bz2"
+    short_hash = META_SHA_256[:8]
+    pos_pkg_name = f"{pkg_name}-1.1-true_1_{short_hash}.tar.bz2"
     META_PKGS[pos_pkg_name] = {
-      "build": "true_1",
+      "build": f"true_1_{short_hash}",
       "build_number": 1,
       "depends": pos_deps,
       "name": pkg_name,
@@ -83,9 +84,9 @@ def register_metapackages(pkg_name, pos_deps, neg_deps):
       "timestamp": 0,
       "version": "1.1"
     }
-    neg_pkg_name = f"{pkg_name}-0.1-false_0.tar.bz2"
+    neg_pkg_name = f"{pkg_name}-0.1-false_0_{short_hash}.tar.bz2"
     META_PKGS[neg_pkg_name] = {
-      "build": "false_0",
+      "build": f"false_0_{short_hash}",
       "build_number": 0,
       "depends": neg_deps,
       "name": pkg_name,
