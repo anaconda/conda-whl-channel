@@ -78,7 +78,18 @@ Also ensure that your stub package has been uploaded to the server (only needs t
 
 Flask can now be installed from this repo:
 
-
 ```
 ./demo_env/bin/conda create --prefix test_env flask=3.1.0 python=3.13 --channel http://127.0.0.1:8000/repo
 ```
+
+# Iterating on specs
+
+After creating an initial channel, first we need to figure out if it resolves.
+To do so, run the following command
+
+```sh
+conda activate ./gen_env
+python tools/doesitsolve.py -c CHANNEL_HERE -o ./specs/channel.solve.json
+```
+
+This will try to dry-run solve every version in the channel, and report the status to the output file
