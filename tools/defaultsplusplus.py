@@ -30,9 +30,11 @@ def parse_channel(channel: str = "defaults") -> Dict[str, str]:
     for package_name, package_info in packages_data.items():
         if package_info:  # Check if package has any versions
             # Sort versions and get the latest one
-            latest_version = sorted(
-                package_info, key=lambda x: x.get("version", "0.0.0"), reverse=True
-            )[0]
+            def key_fn(x: dict[str, str]) -> Version:
+                v = convert_package_version(x.get("version", "0.0.0"))
+                return Version(v) if v else Version("0.0.0")
+
+            latest_version = sorted(package_info, key=key_fn, reverse=True)[0]
             latest_versions[package_name] = latest_version["version"]
 
     return latest_versions
@@ -104,7 +106,7 @@ def generate_requirements(channel_data: dict[str, str]) -> str:
             pypi_version = convert_package_version(version)
             if pypi_version:
                 packages.add(f"{pypi_name}>{pypi_version}")
-    return "\n".join(packages)
+    return "\n".join(sorted(packages))
 
 
 def main():
