@@ -13639,27 +13639,27 @@
   "jupyter-lsp": {
     "versions": {
       "2.2.1": {
-        "error": "Encountered problems while solving:\n  - nothing provides jupyter-server >=1.1.2 needed by jupyter-lsp-2.2.1-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyter-lsp =2.2.1 * is not installable because it requires\n   \u2514\u2500 jupyter-server >=1.1.2 *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides jupyter-core !=5.0.*,>=4.12 needed by jupyter-server-2.15.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyter-lsp =2.2.1 * is not installable because it requires\n   \u2514\u2500 jupyter-server >=1.1.2 *, which requires\n      \u2514\u2500 jupyter-core !=5.0.*,>=4.12 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       },
       "2.2.2": {
-        "error": "Encountered problems while solving:\n  - nothing provides jupyter-server >=1.1.2 needed by jupyter-lsp-2.2.2-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyter-lsp =2.2.2 * is not installable because it requires\n   \u2514\u2500 jupyter-server >=1.1.2 *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides jupyter-core !=5.0.*,>=4.12 needed by jupyter-server-2.15.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyter-lsp =2.2.2 * is not installable because it requires\n   \u2514\u2500 jupyter-server >=1.1.2 *, which requires\n      \u2514\u2500 jupyter-core !=5.0.*,>=4.12 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       },
       "2.2.3": {
-        "error": "Encountered problems while solving:\n  - nothing provides jupyter-server >=1.1.2 needed by jupyter-lsp-2.2.3-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyter-lsp =2.2.3 * is not installable because it requires\n   \u2514\u2500 jupyter-server >=1.1.2 *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides jupyter-core !=5.0.*,>=4.12 needed by jupyter-server-2.15.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyter-lsp =2.2.3 * is not installable because it requires\n   \u2514\u2500 jupyter-server >=1.1.2 *, which requires\n      \u2514\u2500 jupyter-core !=5.0.*,>=4.12 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       },
       "2.2.4": {
-        "error": "Encountered problems while solving:\n  - nothing provides jupyter-server >=1.1.2 needed by jupyter-lsp-2.2.4-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyter-lsp =2.2.4 * is not installable because it requires\n   \u2514\u2500 jupyter-server >=1.1.2 *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides jupyter-core !=5.0.*,>=4.12 needed by jupyter-server-2.15.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyter-lsp =2.2.4 * is not installable because it requires\n   \u2514\u2500 jupyter-server >=1.1.2 *, which requires\n      \u2514\u2500 jupyter-core !=5.0.*,>=4.12 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       },
       "2.2.5": {
-        "error": "Encountered problems while solving:\n  - nothing provides jupyter-server >=1.1.2 needed by jupyter-lsp-2.2.5-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyter-lsp =2.2.5 * is not installable because it requires\n   \u2514\u2500 jupyter-server >=1.1.2 *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides jupyter-core !=5.0.*,>=4.12 needed by jupyter-server-2.15.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyter-lsp =2.2.5 * is not installable because it requires\n   \u2514\u2500 jupyter-server >=1.1.2 *, which requires\n      \u2514\u2500 jupyter-core !=5.0.*,>=4.12 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       }
@@ -13668,17 +13668,17 @@
   "jupyter-server-proxy": {
     "versions": {
       "4.2.0": {
-        "error": "Encountered problems while solving:\n  - nothing provides jupyter-server >=1.24.0 needed by jupyter-server-proxy-4.2.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyter-server-proxy =4.2.0 * is not installable because it requires\n   \u2514\u2500 jupyter-server >=1.24.0 *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides jupyter-core !=5.0.*,>=4.12 needed by jupyter-server-2.15.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyter-server-proxy =4.2.0 * is not installable because it requires\n   \u2514\u2500 jupyter-server >=1.24.0 *, which requires\n      \u2514\u2500 jupyter-core !=5.0.*,>=4.12 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       },
       "4.3.0": {
-        "error": "Encountered problems while solving:\n  - nothing provides jupyter-server >=1.24.0 needed by jupyter-server-proxy-4.3.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyter-server-proxy =4.3.0 * is not installable because it requires\n   \u2514\u2500 jupyter-server >=1.24.0 *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides jupyter-core !=5.0.*,>=4.12 needed by jupyter-server-2.15.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyter-server-proxy =4.3.0 * is not installable because it requires\n   \u2514\u2500 jupyter-server >=1.24.0 *, which requires\n      \u2514\u2500 jupyter-core !=5.0.*,>=4.12 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       },
       "4.4.0": {
-        "error": "Encountered problems while solving:\n  - nothing provides jupyter-server >=1.24.0 needed by jupyter-server-proxy-4.4.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyter-server-proxy =4.4.0 * is not installable because it requires\n   \u2514\u2500 jupyter-server >=1.24.0 *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides jupyter-core !=5.0.*,>=4.12 needed by jupyter-server-2.15.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyter-server-proxy =4.4.0 * is not installable because it requires\n   \u2514\u2500 jupyter-server >=1.24.0 *, which requires\n      \u2514\u2500 jupyter-core !=5.0.*,>=4.12 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       }
@@ -13745,12 +13745,12 @@
   "jupyterlab-git": {
     "versions": {
       "0.50.1": {
-        "error": "Encountered problems while solving:\n  - nothing provides jupyter-server <3,>=2.0.1 needed by jupyterlab-git-0.50.1-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyterlab-git =0.50.1 * is not installable because it requires\n   \u2514\u2500 jupyter-server <3,>=2.0.1 *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides jupyter-core !=5.0.*,>=4.12 needed by jupyter-server-2.15.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyterlab-git =0.50.1 * is not installable because it requires\n   \u2514\u2500 jupyter-server <3,>=2.0.1 *, which requires\n      \u2514\u2500 jupyter-core !=5.0.*,>=4.12 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       },
       "0.50.2": {
-        "error": "Encountered problems while solving:\n  - nothing provides jupyter-server <3,>=2.0.1 needed by jupyterlab-git-0.50.2-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyterlab-git =0.50.2 * is not installable because it requires\n   \u2514\u2500 jupyter-server <3,>=2.0.1 *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides jupyter-core !=5.0.*,>=4.12 needed by jupyter-server-2.15.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 jupyterlab-git =0.50.2 * is not installable because it requires\n   \u2514\u2500 jupyter-server <3,>=2.0.1 *, which requires\n      \u2514\u2500 jupyter-core !=5.0.*,>=4.12 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       }
@@ -15804,7 +15804,7 @@
   "nbdime": {
     "versions": {
       "4.0.2": {
-        "error": "Encountered problems while solving:\n  - nothing provides jupyter-server needed by nbdime-4.0.2-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 nbdime =4.0.2 * is not installable because it requires\n   \u2514\u2500 jupyter-server =* *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides jupyter-core !=5.0.*,>=4.12 needed by jupyter-server-2.15.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 nbdime =4.0.2 * is not installable because it requires\n   \u2514\u2500 jupyter-server =* *, which requires\n      \u2514\u2500 jupyter-core !=5.0.*,>=4.12 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       }
@@ -15917,22 +15917,22 @@
   "notebook": {
     "versions": {
       "7.2.3": {
-        "error": "Encountered problems while solving:\n  - nothing provides jupyter-server <3,>=2.4.0 needed by notebook-7.2.3-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 notebook =7.2.3 * is not installable because it requires\n   \u2514\u2500 jupyter-server <3,>=2.4.0 *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides jupyterlab-server <3,>=2.27.1 needed by notebook-7.2.3-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 notebook =7.2.3 * is not installable because it requires\n   \u2514\u2500 jupyterlab-server <3,>=2.27.1 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       },
       "7.3.0": {
-        "error": "Encountered problems while solving:\n  - nothing provides jupyter-server <3,>=2.4.0 needed by notebook-7.3.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 notebook =7.3.0 * is not installable because it requires\n   \u2514\u2500 jupyter-server <3,>=2.4.0 *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides jupyterlab-server <3,>=2.27.1 needed by notebook-7.3.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 notebook =7.3.0 * is not installable because it requires\n   \u2514\u2500 jupyterlab-server <3,>=2.27.1 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       },
       "7.3.1": {
-        "error": "Encountered problems while solving:\n  - nothing provides jupyter-server <3,>=2.4.0 needed by notebook-7.3.1-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 notebook =7.3.1 * is not installable because it requires\n   \u2514\u2500 jupyter-server <3,>=2.4.0 *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides jupyterlab-server <3,>=2.27.1 needed by notebook-7.3.1-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 notebook =7.3.1 * is not installable because it requires\n   \u2514\u2500 jupyterlab-server <3,>=2.27.1 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       },
       "7.3.2": {
-        "error": "Encountered problems while solving:\n  - nothing provides jupyter-server <3,>=2.4.0 needed by notebook-7.3.2-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 notebook =7.3.2 * is not installable because it requires\n   \u2514\u2500 jupyter-server <3,>=2.4.0 *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides jupyterlab-server <3,>=2.27.1 needed by notebook-7.3.2-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 notebook =7.3.2 * is not installable because it requires\n   \u2514\u2500 jupyterlab-server <3,>=2.27.1 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       }
@@ -15941,7 +15941,7 @@
   "notebook-shim": {
     "versions": {
       "0.2.4": {
-        "error": "Encountered problems while solving:\n  - nothing provides jupyter-server <3,>=1.8 needed by notebook-shim-0.2.4-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 notebook-shim =0.2.4 * is not installable because it requires\n   \u2514\u2500 jupyter-server <3,>=1.8 *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides jupyter-core !=5.0.*,>=4.12 needed by jupyter-server-2.15.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 notebook-shim =0.2.4 * is not installable because it requires\n   \u2514\u2500 jupyter-server <3,>=1.8 *, which requires\n      \u2514\u2500 jupyter-core !=5.0.*,>=4.12 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       }

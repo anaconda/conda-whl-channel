@@ -59,6 +59,10 @@ class UnsupportedPythonInterpreter(Exception):
     pass
 
 
+class ArchSpecificDependency(Exception):
+    pass
+
+
 def get_file_sha_and_size(file_path):
     sha256_hash = hashlib.sha256()
     with open(file_path, "rb") as f:
@@ -186,7 +190,9 @@ def py_to_conda_name(name: str) -> str:
     return conda_name
 
 
-def py_to_conda_reqs(req: Requirement, seen_py_names: set[str]) -> list[str]:
+def py_to_conda_reqs(
+    req: Requirement, seen_py_names: set[str], platform: str
+) -> list[str]:
     conda_name = py_to_conda_name(req.name)
     conda_deps = [f"{conda_name} {req.specifier}".strip()]
     if req.marker:
@@ -196,6 +202,34 @@ def py_to_conda_reqs(req: Requirement, seen_py_names: set[str]) -> list[str]:
             logger.debug(f"skipping extra: {req}")
             return []
         # TODO handle evaluation when possible (non-universal wheels)
+        if (
+            len(markers) == 1
+            and isinstance(markers[0], tuple)
+            and len(markers[0]) == 3
+            and str(markers[0][0]) == "os_name"
+            and str(markers[0][1]) == "=="
+        ):
+            if platform == "noarch":
+                raise ArchSpecificDependency(
+                    f"dependency {req.name} is arch-specific but platform is noarch"
+                )
+            mapping = {
+                "win-64": "nt",
+                "win-32": "nt",
+                "linux-64": "posix",
+                "linux-aarch64": "posix",
+                "osx-64": "posix",
+                "osx-arm64": "posix",
+            }
+            if mapping.get(platform) != str(markers[0][2]):
+                logger.debug(
+                    f"Skipping dependency {req.name} because of os_name == {markers[0][2]} on platform {platform}"
+                )
+                return []
+            else:
+                # No metapackage is needed, we can just treat this as a normal dependency
+                seen_py_names.add(canonicalize_name(req.name))
+                return conda_deps
         conda_deps = make_metapkgs(conda_deps[0], req.marker)
         # logger.warning(f"including req with marker: '{req}'")
     if req.extras:
@@ -273,10 +307,32 @@ class ProjectGenerator:
             if support_platforms.isdisjoint(self.platforms):
                 logger.debug(f"Ignoring wheel for unsupported platform: {pkg.filename}")
                 continue
-            conda_pkg = self.repodata_for_pkg(
-                pkg, support_platforms, depends_from_filename
-            )
-            conda_pkgs.extend(conda_pkg)
+            try:
+                conda_pkg = self.repodata_for_pkg(
+                    pkg, support_platforms, depends_from_filename
+                )
+                conda_pkgs.extend(conda_pkg)
+            except ArchSpecificDependency as e:
+                if len(support_platforms) == 1 and "noarch" in support_platforms:
+                    # The wheel is marked as noarch, but it has a dependency that is arch specific
+                    # Pretend like we have a wheel for each platform, and generate
+                    # the corresponding conda packages
+                    conda_pkg = self.repodata_for_pkg(
+                        pkg,
+                        {
+                            "osx-64",
+                            "osx-arm64",
+                            "linux-64",
+                            "linux-aarch64",
+                            "win-64",
+                            "win-32",
+                        },
+                        depends_from_filename,
+                    )
+                    conda_pkgs.extend(conda_pkg)
+                else:
+                    raise e
+
         return conda_pkgs
 
     def info_from_filename(self, filename: str) -> tuple[set[str], list[str]]:
@@ -356,22 +412,26 @@ class ProjectGenerator:
         raw_metadata = self.client.get_package_metadata(pkg)
         depends = list(depends_from_filename)
         mdata = Metadata.from_email(raw_metadata, validate=False)
-        if mdata.requires_python:
-            py_dep = "python " + str(mdata.requires_python)
-        else:
-            py_dep = "python"
-        depends.append(py_dep)
-        if mdata.requires_dist:
-            for py_req in mdata.requires_dist:
-                conda_deps = py_to_conda_reqs(py_req, self.seen_py_names)
-                for conda_dep in conda_deps:
-                    depends.append(conda_dep)
         _, python_tag, abi_tag, platform_tag = pkg.filename.removesuffix(".whl").rsplit(
             "-", maxsplit=3
         )
         build = f"{python_tag}_{abi_tag}_{platform_tag}"
         pkgs = []
+
         for subdir in supported_platforms:
+            # Process dependencies for this specific platform
+            depends = list(depends_from_filename)
+            if mdata.requires_python:
+                py_dep = "python " + str(mdata.requires_python)
+            else:
+                py_dep = "python"
+            depends.append(py_dep)
+
+            if mdata.requires_dist:
+                for py_req in mdata.requires_dist:
+                    conda_deps = py_to_conda_reqs(py_req, self.seen_py_names, subdir)
+                    depends.extend(conda_deps)
+
             rdata = CondaPackageMetadata(
                 filename=pkg.filename,
                 build=build,
