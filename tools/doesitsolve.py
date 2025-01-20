@@ -105,6 +105,20 @@ def check_package_solveability(
         return {"solveable": False, "error": error_msg, "error_type": error_type}
 
 
+def get_failed_versions(results: Dict[str, PackageResults]) -> Dict[str, list[str]]:
+    """Get dict of package names to list of versions that failed to solve."""
+    failed: Dict[str, list[str]] = {}
+    for package, pkg_data in results.items():
+        failed_versions = [
+            version
+            for version, result in pkg_data["versions"].items()
+            if not result["solveable"]
+        ]
+        if failed_versions:
+            failed[package] = failed_versions
+    return failed
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Check solveability of conda packages in a channel"
@@ -130,9 +144,21 @@ def main():
         dest="packages",
     )
     _ = parser.add_argument(
+        "--skip",
+        action="append",
+        help="Package to skip (can be repeated)",
+        default=[],
+    )
+    _ = parser.add_argument(
         "--recheck",
         action="store_true",
         help="Re-analyze packages even if they have cached results",
+        default=False,
+    )
+    _ = parser.add_argument(
+        "--failed",
+        action="store_true",
+        help="Only analyze packages that previously failed",
         default=False,
     )
     args = parser.parse_args()
@@ -146,6 +172,25 @@ def main():
     # Get all packages and their versions from channel
     print(f"Fetching package list from channel '{args.channel}'...")
     packages = get_channel_packages(args.channel, args.packages)
+
+    # If --failed is specified, filter to only previously failed versions
+    if args.failed and results:
+        failed_versions = get_failed_versions(results)
+        packages = {
+            pkg: [ver for ver in versions if ver in failed_versions.get(pkg, [])]
+            for pkg, versions in packages.items()
+            if pkg in failed_versions
+        }
+        # Remove packages with no remaining versions
+        packages = {pkg: vers for pkg, vers in packages.items() if vers}
+        print(f"Filtered to {len(packages)} packages with failed versions")
+
+    # Remove skipped packages (after filtering failed versions)
+    if args.skip:
+        for pkg in args.skip:
+            if pkg in packages:
+                del packages[pkg]
+                print(f"Skipping package: {pkg}")
 
     total_packages = len(packages)
     total_versions = sum(len(versions) for versions in packages.values())

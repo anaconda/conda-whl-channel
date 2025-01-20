@@ -335,7 +335,7 @@ class ProjectGenerator:
 
 
 def create_repodata(
-    specs: dict[str, SpecifierSet],
+    specs: dict[str, list[SpecifierSet]],
     platforms: set[str],
     proc_dependencies: bool = False,
 ) -> Dict[str, Dict[Any, Any]]:
@@ -350,16 +350,17 @@ def create_repodata(
         done_projects.add(project)
         try:
             logger.info(f"creating repodata entries for project: {project}")
-            spec = specs.get(project)
-            gen = ProjectGenerator(client, project, platforms, spec)
-            conda_pkgs.extend(gen.conda_pkgs)
+            # Process each specifier set for the project
+            for spec in specs[project]:
+                gen = ProjectGenerator(client, project, platforms, spec)
+                conda_pkgs.extend(gen.conda_pkgs)
 
-            logger.debug(f"projects visited: {gen.seen_py_names}")
-            if proc_dependencies:
-                for to_add in gen.seen_py_names:
-                    if to_add not in done_projects:
-                        to_do_projects.add(to_add)
-            logger.debug(f"projects to visit: {to_do_projects}")
+                logger.debug(f"projects visited: {gen.seen_py_names}")
+                if proc_dependencies:
+                    for to_add in gen.seen_py_names:
+                        if to_add not in done_projects:
+                            to_do_projects.add(to_add)
+                logger.debug(f"projects to visit: {to_do_projects}")
         except Exception as e:
             logger.error(f"error processing project {project}: {e}")
 
@@ -386,12 +387,15 @@ def write_repodata(repodata: Dict[str, Dict[Any, Any]], repo_base_path: str):
         write_as_json_to_file(f"{repo_base_path}/{platform}/repodata.json", subdir_data)
 
 
-def parse_requirements_file(file_path: Path) -> Dict[str, SpecifierSet]:
-    specs = {}
+def parse_requirements_file(file_path: Path) -> Dict[str, list[SpecifierSet]]:
+    """Parse requirements file into dict of package name to list of SpecifierSets."""
+    specs: Dict[str, list[SpecifierSet]] = {}
     with open(file_path, "r") as f:
         for line in f:
             req = Requirement(line.strip())
-            specs[req.name] = req.specifier
+            if req.name not in specs:
+                specs[req.name] = []
+            specs[req.name].append(req.specifier)
     return specs
 
 
