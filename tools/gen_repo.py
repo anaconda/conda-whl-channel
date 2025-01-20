@@ -55,6 +55,10 @@ META_SIZE: Optional[int] = None
 META_PKGS = {}
 
 
+class UnsupportedPythonInterpreter(Exception):
+    pass
+
+
 def get_file_sha_and_size(file_path):
     sha256_hash = hashlib.sha256()
     with open(file_path, "rb") as f:
@@ -100,32 +104,64 @@ def register_metapackages(pkg_name, pos_deps, neg_deps):
     }
 
 
-def make_metapkgs(conda_dep: str, marker: Marker) -> str:
+def make_metapkgs(conda_dep: str, marker: Marker) -> list[str]:
     dep_hash = hashlib.sha1(conda_dep.encode()).hexdigest()[:HASH_LENGTH]
     marker_hash = hashlib.sha1(str(marker).encode()).hexdigest()[:HASH_LENGTH]
     meta_pkg_name = f"_c_{dep_hash}_{marker_hash}"
     markers = marker._markers
+    if (
+        len(markers) == 3
+        and isinstance(markers[0], tuple)
+        and len(markers[0]) == 3
+        and isinstance(markers[2], tuple)
+        and len(markers[2]) == 3
+    ):
+        variable1, op1, value1 = markers[0]
+        clause = markers[1]
+        variable2, op2, value2 = markers[2]
+        if str(variable1) == "python_version" and str(variable2) == "python_version":
+            nop1 = MIRROR_OP[str(op1)]
+            nop2 = MIRROR_OP[str(op2)]
+            if clause == "and":
+                positive_deps = [
+                    f"python {op1}{value1}",
+                    f"python {op2}{value2}",
+                    conda_dep,
+                ]
+                negative_deps = [f"python {nop1}{value1}", f"python {nop2}{value2}"]
+                register_metapackages(meta_pkg_name, positive_deps, negative_deps)
+                return [meta_pkg_name]
+            elif clause == "or":
+                return make_metapkgs(
+                    conda_dep,
+                    Marker(f'{markers[0][0]} {markers[0][1]} "{markers[0][2]}"'),
+                ) + make_metapkgs(
+                    conda_dep,
+                    Marker(f'{markers[2][0]} {markers[2][1]} "{markers[2][2]}"'),
+                )
+
     if len(markers) != 1 or not isinstance(markers[0], tuple) or len(markers[0]) != 3:
         # User De Morgan's laws to express:
         # OR will produce two packages, one for each clause
         # AND will produce a single package that depends on both clauses
-        raise NotImplementedError("complex marker")
+        raise NotImplementedError(f"complex marker: {markers}")
     variable, op, value = markers[0]
     op = str(op)
     nop = MIRROR_OP[op]
-    if str(variable) == "python_version":
+    if str(variable) == "python_version" or str(variable) == "python_full_version":
         positive_dep = f"python {op}{value}"
         negative_dep = f"python {nop}{value}"
         positive_deps = [positive_dep, conda_dep]
         negative_deps = [negative_dep]
         register_metapackages(meta_pkg_name, positive_deps, negative_deps)
-        return meta_pkg_name
+        return [meta_pkg_name]
     elif str(variable) == "platform_system":
         positive_dep = f"python {op}{value}"
         negative_dep = f"python {nop}{value}"
         positive_deps = [positive_dep, conda_dep]
         negative_deps = [negative_dep]
         register_metapackages(meta_pkg_name, positive_deps, negative_deps)
+        return [meta_pkg_name]
 
     else:
         raise NotImplementedError(f"unsupported marker: {marker}")
@@ -150,22 +186,22 @@ def py_to_conda_name(name: str) -> str:
     return conda_name
 
 
-def py_to_conda_req(req: Requirement, seen_py_names: set[str]) -> str:
+def py_to_conda_reqs(req: Requirement, seen_py_names: set[str]) -> list[str]:
     conda_name = py_to_conda_name(req.name)
-    conda_dep = f"{conda_name} {req.specifier}".strip()
+    conda_deps = [f"{conda_name} {req.specifier}".strip()]
     if req.marker:
         markers = req.marker._markers
 
         if any(isinstance(m, tuple) and str(m[0]) == "extra" for m in markers):
             logger.debug(f"skipping extra: {req}")
-            return None
+            return []
         # TODO handle evaluation when possible (non-universal wheels)
-        conda_dep = make_metapkgs(conda_dep, req.marker)
+        conda_deps = make_metapkgs(conda_deps[0], req.marker)
         # logger.warning(f"including req with marker: '{req}'")
     if req.extras:
         raise NotImplementedError(f"extras not supported: {req}")
     seen_py_names.add(canonicalize_name(req.name))
-    return conda_dep
+    return conda_deps
 
 
 @dataclass
@@ -227,9 +263,13 @@ class ProjectGenerator:
                 continue
             if pkg.version not in self.spec:
                 continue
-            support_platforms, depends_from_filename = self.info_from_filename(
-                pkg.filename
-            )
+            try:
+                support_platforms, depends_from_filename = self.info_from_filename(
+                    pkg.filename
+                )
+            except UnsupportedPythonInterpreter as e:
+                logger.debug(f"unsupported python interpreter: {e}")
+                continue
             if support_platforms.isdisjoint(self.platforms):
                 logger.debug(f"Ignoring wheel for unsupported platform: {pkg.filename}")
                 continue
@@ -245,11 +285,11 @@ class ProjectGenerator:
             "-", maxsplit=3
         )
         if abi_tag == "none" and platform_tag == "any":
-            supported_platforms = set(["noarch"])
-            depends_from_filename = []
+            supported_platforms = set[str](["noarch"])
+            depends_from_filename: list[str] = []
             return supported_platforms, depends_from_filename
 
-        supported_platforms = set()
+        supported_platforms = set[str]()
         if "macosx" in platform_tag:
             if "universal2" in platform_tag:
                 # supported_platforms.add("osx-arm64")
@@ -282,8 +322,21 @@ class ProjectGenerator:
             return set(), []
 
         # TODO python 2 and ABI thats that have suffix (m, d)
+        if abi_tag.lower() == "none":
+            if python_tag == ("py3"):
+                depends_from_filename = ["python >=3.0"]
+                return supported_platforms, depends_from_filename
+            elif python_tag.startswith("cp3"):
+                minor = python_tag[3:]
+                depends_from_filename = [f"python >=3.{minor}"]
+                return supported_platforms, depends_from_filename
+            else:
+                raise NotImplementedError(
+                    f"unsupported py_tag for none abi: {python_tag}"
+                )
+
         if not abi_tag.startswith("cp3"):
-            raise NotImplementedError(f"unsupported abi: {abi_tag}")
+            raise UnsupportedPythonInterpreter(f"unsupported abi: {abi_tag}")
         try:
             minor = abi_tag[3:]
             minor = "".join(c for c in minor if c.isdigit())
@@ -310,8 +363,8 @@ class ProjectGenerator:
         depends.append(py_dep)
         if mdata.requires_dist:
             for py_req in mdata.requires_dist:
-                conda_dep = py_to_conda_req(py_req, self.seen_py_names)
-                if conda_dep:
+                conda_deps = py_to_conda_reqs(py_req, self.seen_py_names)
+                for conda_dep in conda_deps:
                     depends.append(conda_dep)
         _, python_tag, abi_tag, platform_tag = pkg.filename.removesuffix(".whl").rsplit(
             "-", maxsplit=3

@@ -16364,12 +16364,12 @@
   "draco": {
     "versions": {
       "2.0.0": {
-        "error": "Encountered problems while solving:\n  - nothing provides clingo <6.0.0,>=5.5.2 needed by draco-2.0.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 draco =2.0.0 * is not installable because it requires\n   \u2514\u2500 clingo <6.0.0,>=5.5.2 *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides fastapi <0.102,>=0.85 needed by draco-2.0.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 draco =2.0.0 * is not installable because it requires\n   \u2514\u2500 fastapi <0.102,>=0.85 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       },
       "2.0.1": {
-        "error": "Encountered problems while solving:\n  - nothing provides clingo <6.0.0,>=5.5.2 needed by draco-2.0.1-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 draco =2.0.1 * is not installable because it requires\n   \u2514\u2500 clingo <6.0.0,>=5.5.2 *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides uvicorn <0.30.0,>=0.25.0 needed by draco-2.0.1-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 draco =2.0.1 * is not installable because it requires\n   \u2514\u2500 uvicorn <0.30.0,>=0.25.0 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       }
@@ -18428,19 +18428,19 @@
         "solveable": false
       },
       "1.20.0": {
-        "error": "Encountered problems while solving:\n  - nothing provides fast-histogram >=0.12 needed by glue-core-1.20.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 glue-core =1.20.0 * is not installable because it requires\n   \u2514\u2500 fast-histogram >=0.12 *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides spectral-cube >=0.4 needed by pvextractor-0.4-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 glue-core =1.20.0 * is not installable because it requires\n   \u2514\u2500 pvextractor >=0.2 *, which requires\n      \u2514\u2500 spectral-cube >=0.4 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       },
       "1.21.0": {
-        "error": "Encountered problems while solving:\n  - nothing provides fast-histogram >=0.12 needed by glue-core-1.21.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 glue-core =1.21.0 * is not installable because it requires\n   \u2514\u2500 fast-histogram >=0.12 *, which does not exist (perhaps a missing channel).",
+        "error": "Encountered problems while solving:\n  - nothing provides spectral-cube >=0.4 needed by pvextractor-0.4-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 glue-core =1.21.0 * is not installable because it requires\n   \u2514\u2500 pvextractor >=0.2 *, which requires\n      \u2514\u2500 spectral-cube >=0.4 *, which does not exist (perhaps a missing channel).",
         "error_type": "LibMambaUnsatisfiableError",
         "solveable": false
       },
       "1.21.1": {
-        "error": "Encountered problems while solving:\n  - nothing provides fast-histogram >=0.12 needed by glue-core-1.21.1-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 glue-core =1.21.1 * is not installable because it requires\n   \u2514\u2500 fast-histogram >=0.12 *, which does not exist (perhaps a missing channel).",
-        "error_type": "LibMambaUnsatisfiableError",
-        "solveable": false
+        "error": null,
+        "error_type": null,
+        "solveable": true
       },
       "1.3.0": {
         "error": "Encountered problems while solving:\n  - nothing provides spectral-cube >=0.4 needed by pvextractor-0.4-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 glue-core =1.3.0 * is not installable because it requires\n   \u2514\u2500 pvextractor >=0.2 *, which requires\n      \u2514\u2500 spectral-cube >=0.4 *, which does not exist (perhaps a missing channel).",
@@ -25216,42 +25216,42 @@
   "langchain": {
     "versions": {
       "0.3.13": {
-        "error": "Encountered problems while solving:\n  - nothing provides langchain-core <0.4.0,>=0.3.26 needed by langchain-0.3.13-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 langchain =0.3.13 * is not installable because it requires\n   \u2514\u2500 langchain-core <0.4.0,>=0.3.26 *, which does not exist (perhaps a missing channel).",
-        "error_type": "LibMambaUnsatisfiableError",
-        "solveable": false
+        "error": null,
+        "error_type": null,
+        "solveable": true
       },
       "0.3.14": {
-        "error": "Encountered problems while solving:\n  - nothing provides langchain-core <0.4.0,>=0.3.29 needed by langchain-0.3.14-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 langchain =0.3.14 * is not installable because it requires\n   \u2514\u2500 langchain-core <0.4.0,>=0.3.29 *, which does not exist (perhaps a missing channel).",
-        "error_type": "LibMambaUnsatisfiableError",
-        "solveable": false
+        "error": null,
+        "error_type": null,
+        "solveable": true
       }
     }
   },
   "langchain-community": {
     "versions": {
       "0.3.13": {
-        "error": "Encountered problems while solving:\n  - nothing provides langchain-core <0.4.0,>=0.3.27 needed by langchain-community-0.3.13-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 langchain-community =0.3.13 * is not installable because it requires\n   \u2514\u2500 langchain-core <0.4.0,>=0.3.27 *, which does not exist (perhaps a missing channel).",
-        "error_type": "LibMambaUnsatisfiableError",
-        "solveable": false
+        "error": null,
+        "error_type": null,
+        "solveable": true
       },
       "0.3.14": {
-        "error": "Encountered problems while solving:\n  - nothing provides langchain-core <0.4.0,>=0.3.29 needed by langchain-community-0.3.14-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 langchain-community =0.3.14 * is not installable because it requires\n   \u2514\u2500 langchain-core <0.4.0,>=0.3.29 *, which does not exist (perhaps a missing channel).",
-        "error_type": "LibMambaUnsatisfiableError",
-        "solveable": false
+        "error": null,
+        "error_type": null,
+        "solveable": true
       }
     }
   },
   "langchain-text-splitters": {
     "versions": {
       "0.3.4": {
-        "error": "Encountered problems while solving:\n  - nothing provides langchain-core <0.4.0,>=0.3.26 needed by langchain-text-splitters-0.3.4-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 langchain-text-splitters =0.3.4 * is not installable because it requires\n   \u2514\u2500 langchain-core <0.4.0,>=0.3.26 *, which does not exist (perhaps a missing channel).",
-        "error_type": "LibMambaUnsatisfiableError",
-        "solveable": false
+        "error": null,
+        "error_type": null,
+        "solveable": true
       },
       "0.3.5": {
-        "error": "Encountered problems while solving:\n  - nothing provides langchain-core <0.4.0,>=0.3.29 needed by langchain-text-splitters-0.3.5-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 langchain-text-splitters =0.3.5 * is not installable because it requires\n   \u2514\u2500 langchain-core <0.4.0,>=0.3.29 *, which does not exist (perhaps a missing channel).",
-        "error_type": "LibMambaUnsatisfiableError",
-        "solveable": false
+        "error": null,
+        "error_type": null,
+        "solveable": true
       }
     }
   },
@@ -29495,14 +29495,14 @@
         "solveable": true
       },
       "0.3.2": {
-        "error": "Encountered problems while solving:\n  - nothing provides multiprocess >=0.70.16 needed by pathos-0.3.2-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 pathos =0.3.2 * is not installable because it requires\n   \u2514\u2500 multiprocess >=0.70.16 *, which does not exist (perhaps a missing channel).",
-        "error_type": "LibMambaUnsatisfiableError",
-        "solveable": false
+        "error": null,
+        "error_type": null,
+        "solveable": true
       },
       "0.3.3": {
-        "error": "Encountered problems while solving:\n  - nothing provides multiprocess >=0.70.17 needed by pathos-0.3.3-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 pathos =0.3.3 * is not installable because it requires\n   \u2514\u2500 multiprocess >=0.70.17 *, which does not exist (perhaps a missing channel).",
-        "error_type": "LibMambaUnsatisfiableError",
-        "solveable": false
+        "error": null,
+        "error_type": null,
+        "solveable": true
       }
     }
   },
@@ -30833,9 +30833,9 @@
   "plotly-resampler": {
     "versions": {
       "0.10.0": {
-        "error": "Encountered problems while solving:\n  - nothing provides tsdownsample >=0.1.3 needed by plotly-resampler-0.10.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 plotly-resampler =0.10.0 * is not installable because it requires\n   \u2514\u2500 tsdownsample >=0.1.3 *, which does not exist (perhaps a missing channel).",
-        "error_type": "LibMambaUnsatisfiableError",
-        "solveable": false
+        "error": null,
+        "error_type": null,
+        "solveable": true
       },
       "0.9.0": {
         "error": "Encountered problems while solving:\n  - nothing provides tsdownsample 0.1.2 needed by plotly-resampler-0.9.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 plotly-resampler =0.9.0 * is not installable because it requires\n   \u2514\u2500 tsdownsample ==0.1.2 *, which does not exist (perhaps a missing channel).",
@@ -38272,9 +38272,9 @@
         "solveable": true
       },
       "2.1.0": {
-        "error": "Encountered problems while solving:\n  - nothing provides redis >=4.2.0rc1 needed by starsessions-2.1.0-py3_none_any\n\nCould not solve for environment specs\nThe following package could not be installed\n\u2514\u2500 starsessions =2.1.0 * is not installable because it requires\n   \u2514\u2500 redis >=4.2.0rc1 *, which does not exist (perhaps a missing channel).",
-        "error_type": "LibMambaUnsatisfiableError",
-        "solveable": false
+        "error": null,
+        "error_type": null,
+        "solveable": true
       },
       "2.1.1": {
         "error": null,
