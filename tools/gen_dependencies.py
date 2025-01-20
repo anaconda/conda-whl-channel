@@ -67,7 +67,7 @@ def parse_error_requirements(error: str) -> list[tuple[str, str]]:
     # Common patterns in conda solver errors
     patterns = [
         # Pattern from the example: "nothing provides jupyter-client <8.0 needed by"
-        r"nothing provides ([a-zA-Z0-9\-_]+) ([<>=!~]+[0-9][a-zA-Z0-9\-_.*]+) needed by",
+        r"nothing provides ([a-zA-Z0-9\-_]+) (.+) needed by",
         # Add more patterns as we discover them
         r"requires ([a-zA-Z0-9\-_]+) ([<>=!~]+[0-9][a-zA-Z0-9\-_.*]+)",
     ]

@@ -4,6 +4,17 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Dict, Optional, TypedDict
+import multiprocessing as mp
+from functools import partial
+from itertools import chain
+from filelock import FileLock
+import uuid
+import shutil
+import tempfile
+from dataclasses import dataclass
+from multiprocessing import Pool, Queue, Manager
+from queue import Empty
+from typing import List
 
 
 class VersionResult(TypedDict):
@@ -16,19 +27,44 @@ class PackageResults(TypedDict):
     versions: Dict[str, VersionResult]
 
 
+@dataclass
+class SolveJob:
+    """A job to check solveability of a package version."""
+
+    package: str
+    version: str
+    channel: str
+    solve_channels: list[str]
+
+
+@dataclass
+class SolveResult:
+    """Result of a solve job including logs."""
+
+    package: str
+    version: str
+    result: VersionResult
+    logs: list[str]
+
+
 def load_results(output: Path) -> Dict[str, PackageResults]:
     """Load existing results from JSON file or return empty dict if file doesn't exist."""
-    if output.exists():
+    if not output.exists():
+        return {}
+
+    lock_file = Path(str(output) + ".lock")
+    with FileLock(lock_file):
         with open(output) as f:
             return json.load(f)
-    return {}
 
 
 def save_results(results: Dict[str, PackageResults], output: Path) -> None:
-    """Save results to JSON file."""
-    with open(output, "w") as f:
-        json.dump(results, f, indent=2, sort_keys=True)
-        f.flush()
+    """Save results to JSON file with file locking to prevent concurrent writes."""
+    lock_file = Path(str(output) + ".lock")
+    with FileLock(lock_file):
+        with open(output, "w") as f:
+            json.dump(results, f, indent=2, sort_keys=True)
+            f.flush()
 
 
 def get_channel_packages(
@@ -64,13 +100,16 @@ def check_package_solveability(
     package: str, version: str, channel: str, solve_channels: list[str]
 ) -> VersionResult:
     """Check if a specific package version can be solved using given channels."""
+    # Create unique environment name using uuid
+    env_name = f"test_env_{uuid.uuid4().hex[:8]}"
+
     cmd = [
         "conda",
         "create",
         "--dry-run",
         "--json",
         "-n",
-        "test_env",
+        env_name,
     ]
 
     # Add solve channels in order
@@ -119,6 +158,65 @@ def get_failed_versions(results: Dict[str, PackageResults]) -> Dict[str, list[st
     return failed
 
 
+def process_solve_job(job: SolveJob) -> SolveResult:
+    """Process a single solve job and return result with logs."""
+    logs = []
+    logs.append(f"Checking {job.package}={job.version}")
+
+    cmd = [
+        "conda",
+        "create",
+        "--dry-run",
+        "--json",
+        "-n",
+        f"test_env_{uuid.uuid4().hex[:8]}",
+    ]
+
+    # Add solve channels in order
+    for solve_channel in job.solve_channels:
+        cmd.extend(["-c", solve_channel])
+
+    cmd.extend(
+        [
+            "-c",
+            job.channel,
+            "--override-channels",
+            f"{job.package}={job.version}",
+        ]
+    )
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        logs.append("Solve successful")
+        return SolveResult(
+            package=job.package,
+            version=job.version,
+            result={"solveable": True, "error": None, "error_type": None},
+            logs=logs,
+        )
+    except subprocess.CalledProcessError as e:
+        try:
+            error_data = json.loads(e.stdout)
+            error_msg = error_data.get("message", str(e.stdout))
+            error_type = error_data.get("exception_name", type(e).__name__)
+        except json.JSONDecodeError:
+            logs.append(f"Error parsing JSON output: {e.stdout}")
+            error_msg = str(e.stdout)
+            error_type = type(e).__name__
+        except Exception as e:
+            logs.append(f"Unexpected error: {e}")
+            error_msg = str(e)
+            error_type = type(e).__name__
+
+        logs.append(f"Solve failed: {error_msg}")
+        return SolveResult(
+            package=job.package,
+            version=job.version,
+            result={"solveable": False, "error": error_msg, "error_type": error_type},
+            logs=logs,
+        )
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Check solveability of conda packages in a channel"
@@ -161,13 +259,20 @@ def main():
         help="Only analyze packages that previously failed",
         default=False,
     )
+    _ = parser.add_argument(
+        "--jobs",
+        "-j",
+        type=int,
+        default=20,
+        help="Number of parallel jobs (default: 20)",
+    )
     args = parser.parse_args()
 
-    # Default to ["defaults"] if no solve channels specified
-    solve_channels = args.solve_channels or ["defaults"]
-
     # Load existing results
-    results = load_results(args.output)
+    results = {}
+    if args.output.exists():
+        with open(args.output) as f:
+            results = json.load(f)
 
     # Get all packages and their versions from channel
     print(f"Fetching package list from channel '{args.channel}'...")
@@ -192,41 +297,59 @@ def main():
                 del packages[pkg]
                 print(f"Skipping package: {pkg}")
 
-    total_packages = len(packages)
-    total_versions = sum(len(versions) for versions in packages.values())
-    print(
-        f"Found {total_packages} packages with {total_versions} total versions to analyze"
-    )
-    # Check each package version
-    pkg_count = 0
-    for package, versions in packages.items():
-        pkg_count += 1
+    # Create list of jobs to process
+    solve_jobs = [
+        SolveJob(
+            package=pkg,
+            version=ver,
+            channel=args.channel,
+            solve_channels=args.solve_channels or ["defaults"],
+        )
+        for pkg, versions in packages.items()
+        for ver in versions
+        if args.recheck or ver not in results.get(pkg, {}).get("versions", {})
+    ]
 
-        if package not in results:
-            results[package] = {"versions": {}}
+    total_jobs = len(solve_jobs)
+    print(f"Found {len(packages)} packages with {total_jobs} versions to analyze")
 
-        for version in versions:
-            if version in results[package]["versions"] and not args.recheck:
-                print(
-                    f"[{pkg_count}/{total_packages}] Skipping {package}={version} (already analyzed)"
-                )
-                continue
+    # Process jobs in parallel
+    processed = 0
+    with Pool(args.jobs) as pool:
+        for solve_result in pool.imap_unordered(process_solve_job, solve_jobs):
+            processed += 1
 
-            print(f"[{pkg_count}/{total_packages}] Analyzing {package}={version}...")
-            result = check_package_solveability(
-                package, version, args.channel, solve_channels
+            # Print job logs
+            print(
+                f"\n[{processed}/{total_jobs}] {solve_result.package}={solve_result.version}:"
             )
-            results[package]["versions"][version] = result
+            for log in solve_result.logs:
+                print(f"  {log}")
 
-            # Save results after each version to maintain progress
-            save_results(results, args.output)
+            # Update results
+            if solve_result.package not in results:
+                results[solve_result.package] = {"versions": {}}
+            results[solve_result.package]["versions"][
+                solve_result.version
+            ] = solve_result.result
 
-            status = "✓" if result["solveable"] else "✗"
-            print(f"[{pkg_count}/{total_packages}] {package}={version}: {status}")
+            # Save results periodically
+            if processed % 10 == 0:
+                with open(args.output, "w") as f:
+                    json.dump(results, f, indent=2, sort_keys=True)
+                    f.flush()
+
+    # Final save
+    with open(args.output, "w") as f:
+        json.dump(results, f, indent=2, sort_keys=True)
+        f.flush()
 
     print("\nAnalysis complete!")
 
-    # Calculate statistics
+    # Calculate statistics from results
+    analyzed_versions = sum(len(pkg["versions"]) for pkg in results.values())
+    analyzed_packages = len(results)
+
     solved_versions = sum(
         1
         for pkg in results.values()
@@ -239,8 +362,8 @@ def main():
         if all(ver["solveable"] for ver in pkg["versions"].values())
     )
 
-    print(f"Fully solveable packages: {solved_packages}/{total_packages}")
-    print(f"Solveable versions: {solved_versions}/{total_versions}")
+    print(f"Fully solveable packages: {solved_packages}/{analyzed_packages}")
+    print(f"Solveable versions: {solved_versions}/{analyzed_versions}")
 
 
 if __name__ == "__main__":
