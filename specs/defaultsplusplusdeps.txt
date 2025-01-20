@@ -27,6 +27,7 @@ jupyter-core==5.7.2
 jupyter-leaflet==0.19.2
 jupyter-server==2.15.0
 jupyterhub==5.2.1
+jupyterlab-server==2.27.3
 kombu==4.6.11
 language-data==1.3.0
 lazy-loader==0.4
@@ -47,8 +48,10 @@ polib==1.2.0
 prettytable==0.7.2
 prometheus-client==0.21.1
 psycopg2-binary==2.9.10
+pulp==2.9.0
 pvextractor==0.4
 pycodestyle==2.9.1
+pyflakes==2.5.0
 pyogrio==0.10.0
 pyqt5==5.15.11
 pyqt5-sip==12.16.1
