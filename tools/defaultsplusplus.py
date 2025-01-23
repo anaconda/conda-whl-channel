@@ -4,6 +4,7 @@ import subprocess
 from typing import Dict, List, Optional
 from pypi_simple import PyPISimple, ACCEPT_JSON_ONLY
 from packaging.version import Version, InvalidVersion
+from packaging.utils import canonicalize_name
 
 pypi_packages: set[str] | None = None
 
@@ -50,7 +51,7 @@ def pypi_index() -> set[str]:
     global pypi_packages
     if pypi_packages is None:
         client = PyPISimple(accept=ACCEPT_JSON_ONLY)
-        pypi_packages = set(client.get_index_page().projects)
+        pypi_packages = set(canonicalize_name(p) for p in client.get_index_page().projects)
     return pypi_packages
 
 
@@ -65,6 +66,7 @@ def convert_package_name(name: str) -> Optional[str]:
     Returns:
         Optional[str]: The PyPI package name if found, None otherwise
     """
+    name = canonicalize_name(name)
     KNOWN_MAPPINGS: dict[str, str] = {
         "scikit-learn": "sklearn",
         "python-dateutil": "dateutil",
