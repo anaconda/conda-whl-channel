@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import hashlib
 import argparse
 
+import requests_cache
 from pypi_simple import PyPISimple, ACCEPT_JSON_ONLY
 
 from packaging.requirements import Requirement
@@ -20,6 +21,7 @@ from packaging.utils import canonicalize_name
 from typing import Optional, Dict, Any
 from pypi_simple import DistributionPackage
 from packaging.markers import Marker
+from requests import Session
 
 
 HASH_LENGTH = 7  # git --short default
@@ -564,8 +566,9 @@ def create_repodata(
     specs: dict[str, list[SpecifierSet]],
     platforms: set[str],
     proc_dependencies: bool = False,
+    session: Optional[Session] = None,
 ) -> Dict[str, Dict[Any, Any]]:
-    client = PyPISimple(accept=ACCEPT_JSON_ONLY)
+    client = PyPISimple(accept=ACCEPT_JSON_ONLY, session=session)
     conda_pkgs: list[CondaPackageMetadata] = []
 
     to_do_projects = set(specs.keys())
@@ -649,6 +652,13 @@ if __name__ == "__main__":
         default=["osx-arm64", "noarch"],
         help="List of platforms to generate repodata for",
     )
+    parser.add_argument(
+        "-c",
+        "--cache",
+        action="store_true",
+        default=False,
+        help="Cache (and use) PyPI responses",
+    )
 
     args = parser.parse_args()
 
@@ -656,7 +666,14 @@ if __name__ == "__main__":
     if not file_path.exists():
         raise FileNotFoundError(f"Could not find {file_path}")
     specs = parse_requirements_file(file_path)
+    if args.cache:
+        session = requests_cache.CachedSession("pypi_cache")
+    else:
+        session = None
     repodata = create_repodata(
-        specs, set(args.platform), proc_dependencies=args.recurse
+        specs,
+        set(args.platform),
+        proc_dependencies=args.recurse,
+        session=session,
     )
     write_repodata(repodata, "./repo")
