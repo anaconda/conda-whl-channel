@@ -68,7 +68,6 @@ def convert_package_name(name: str) -> Optional[str]:
     """
     name = canonicalize_name(name)
     KNOWN_MAPPINGS: dict[str, str] = {
-        "scikit-learn": "sklearn",
         "python-dateutil": "dateutil",
     }
 

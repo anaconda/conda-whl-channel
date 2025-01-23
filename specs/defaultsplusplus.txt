@@ -1314,6 +1314,7 @@ schemdraw>0.15
 scikit-build-core>0.10.7
 scikit-build>0.18.1
 scikit-image>0.25.0
+scikit-learn>1.5.2
 scikit-plot>0.3.7
 scikit-rf>1.2.0
 scipy>1.15.1
@@ -1356,7 +1357,6 @@ sip>6.7.12
 six>1.16.0
 skl2onnx>1.16.0
 sklearn-pandas>2.2.0
-sklearn>1.5.2
 slack-sdk>3.19.5
 slicer>0.0.8
 slicerator>1.1.0
