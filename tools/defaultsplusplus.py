@@ -7,6 +7,7 @@ from packaging.version import Version, InvalidVersion
 from packaging.utils import canonicalize_name
 
 pypi_packages: set[str] | None = None
+PY_TO_CONDA_NAME = {}
 
 
 def parse_channel(channel: str = "defaults") -> Dict[str, str]:
@@ -113,6 +114,8 @@ def generate_requirements(channel_data: dict[str, str]) -> str:
             pypi_version = convert_package_version(version)
             if pypi_version:
                 packages.add(f"{pypi_name}>{pypi_version}")
+                if pypi_name != name:
+                    PY_TO_CONDA_NAME[pypi_name] = name
     return "\n".join(sorted(packages))
 
 
@@ -135,6 +138,9 @@ def main():
     requirements = generate_requirements(parse_channel(args.channel))
     with open(args.output, "w") as f:
         f.write(requirements)
+    print("PyPI-name: conda-name")
+    for k, v in PY_TO_CONDA_NAME.items():
+        print(f'"{k}": "{v}",')
 
 
 if __name__ == "__main__":
