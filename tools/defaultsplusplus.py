@@ -71,6 +71,12 @@ def convert_package_name(name: str) -> Optional[str]:
     KNOWN_MAPPINGS: dict[str, str] = {
         "python-dateutil": "dateutil",
     }
+    SKIP = (
+        "python-clang",
+    )
+    if name in SKIP:
+        print(f"{name} in skip list")
+        return None
 
     if name in KNOWN_MAPPINGS:
         return KNOWN_MAPPINGS[name]
@@ -79,7 +85,7 @@ def convert_package_name(name: str) -> Optional[str]:
         return name
 
     if name.startswith("python-"):
-        modified_name = name.replace("python-", "python_")
+        modified_name = name.replace("python-", "")
         if modified_name in pypi_index():
             return modified_name
 
