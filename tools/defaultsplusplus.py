@@ -29,6 +29,12 @@ def parse_channel(channel: str = "defaults") -> Dict[str, str]:
     latest_versions = {}
     for package_name, package_info in packages_data.items():
         if package_info:  # Check if package has any versions
+            # Skip non-"python" packages
+            deps = package_info[0].get("depends", ())
+            python_dep = [d.startswith("python") for d in deps]
+            if not any(python_dep):
+                print(f"Non-python package: {package_name}")
+                continue
             # Sort versions and get the latest one
             def key_fn(x: dict[str, str]) -> Version:
                 v = convert_package_version(x.get("version", "0.0.0"))
