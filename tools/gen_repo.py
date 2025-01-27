@@ -235,11 +235,40 @@ def register_metapackages(pkg_name, pos_deps, neg_deps):
     }
 
 
-def make_metapkgs(conda_dep: str, marker: Marker) -> list[str]:
+def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
     dep_hash = hashlib.sha1(conda_dep.encode()).hexdigest()[:HASH_LENGTH]
     marker_hash = hashlib.sha1(str(marker).encode()).hexdigest()[:HASH_LENGTH]
     meta_pkg_name = f"_c_{dep_hash}_{marker_hash}"
     markers = marker._markers
+
+    # TODO handle evaluation when possible (non-universal wheels)
+    if (
+        len(markers) == 1
+        and isinstance(markers[0], tuple)
+        and len(markers[0]) == 3
+        and str(markers[0][0]) == "os_name"
+        and str(markers[0][1]) == "=="
+    ):
+        if platform == "noarch":
+            raise ArchSpecificDependency(
+                f"dependency {conda_dep} is arch-specific but platform is noarch"
+            )
+        mapping = {
+            "win-64": "nt",
+            "win-32": "nt",
+            "linux-64": "posix",
+            "linux-aarch64": "posix",
+            "osx-64": "posix",
+            "osx-arm64": "posix",
+        }
+        if mapping.get(platform) != str(markers[0][2]):
+            logger.debug(
+                f"Skipping dependency {conda_dep} because of os_name == {markers[0][2]} on platform {platform}"
+            )
+            return []
+        else:
+            # No metapackage is needed, we can just treat this as a normal dependency
+            return [conda_dep]
     if (
         len(markers) == 3
         and isinstance(markers[0], tuple)
@@ -266,9 +295,11 @@ def make_metapkgs(conda_dep: str, marker: Marker) -> list[str]:
                 return make_metapkgs(
                     conda_dep,
                     Marker(f'{markers[0][0]} {markers[0][1]} "{markers[0][2]}"'),
+                    platform,
                 ) + make_metapkgs(
                     conda_dep,
                     Marker(f'{markers[2][0]} {markers[2][1]} "{markers[2][2]}"'),
+                    platform,
                 )
 
     if len(markers) != 1 or not isinstance(markers[0], tuple) or len(markers[0]) != 3:
@@ -324,40 +355,10 @@ def py_to_conda_reqs(
     conda_deps = [f"{conda_name} {req.specifier}".strip()]
     if req.marker:
         markers = req.marker._markers
-
         if any(isinstance(m, tuple) and str(m[0]) == "extra" for m in markers):
             logger.debug(f"skipping extra: {req}")
             return []
-        # TODO handle evaluation when possible (non-universal wheels)
-        if (
-            len(markers) == 1
-            and isinstance(markers[0], tuple)
-            and len(markers[0]) == 3
-            and str(markers[0][0]) == "os_name"
-            and str(markers[0][1]) == "=="
-        ):
-            if platform == "noarch":
-                raise ArchSpecificDependency(
-                    f"dependency {req.name} is arch-specific but platform is noarch"
-                )
-            mapping = {
-                "win-64": "nt",
-                "win-32": "nt",
-                "linux-64": "posix",
-                "linux-aarch64": "posix",
-                "osx-64": "posix",
-                "osx-arm64": "posix",
-            }
-            if mapping.get(platform) != str(markers[0][2]):
-                logger.debug(
-                    f"Skipping dependency {req.name} because of os_name == {markers[0][2]} on platform {platform}"
-                )
-                return []
-            else:
-                # No metapackage is needed, we can just treat this as a normal dependency
-                seen_py_names.add(canonicalize_name(req.name))
-                return conda_deps
-        conda_deps = make_metapkgs(conda_deps[0], req.marker)
+        conda_deps = make_metapkgs(conda_deps[0], req.marker, platform)
         # logger.warning(f"including req with marker: '{req}'")
     if req.extras:
         raise NotImplementedError(f"extras not supported: {req}")
