@@ -247,31 +247,37 @@ PLATFORM_SPECIFIC_ENV = {
         "os_name": ("nt", ),
         "platform_system": ("Windows", ),
         "platform_python_implementation": ("CPython", ),
+        "sys_platform": ("win32", ),
     },
     "win-32": {
         "os_name": ("nt", ),
         "platform_system": ("Windows", ),
         "platform_python_implementation": ("CPython", ),
+        "sys_platform": ("win32", ),
     },
     "linux-64": {
         "os_name": ("posix", ),
         "platform_system": ("Linux", ),
         "platform_python_implementation": ("CPython", ),
+        "sys_platform": ("linux", ),
     },
     "linux-aarch64": {
         "os_name": ("posix", ),
         "platform_system": ("Linux", ),
         "platform_python_implementation": ("CPython", ),
+        "sys_platform": ("linux", ),
     },
     "osx-64": {
         "os_name": ("posix", ),
         "platform_system": ("Darwin", ),
         "platform_python_implementation": ("CPython", ),
+        "sys_platform": ("darwin", ),
     },
     "osx-arm64": {
         "os_name": ("posix", ),
         "platform_system": ("Darwin", ),
         "platform_python_implementation": ("CPython", ),
+        "sys_platform": ("darwin", ),
     },
 }
 
@@ -291,7 +297,7 @@ def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
             return [conda_dep]
         return []
     # handle platform specific evaluation when possible
-    if tree.contains("os_name") or tree.contains("platform_system"):
+    if tree.contains("os_name") or tree.contains("platform_system") or tree.contains("sys_platform"):
         if platform == "noarch":
             raise ArchSpecificDependency(
                 f"dependency {conda_dep} is arch-specific but platform is noarch"
