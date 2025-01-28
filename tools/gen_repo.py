@@ -16,6 +16,8 @@ from packaging.metadata import parse_email, Metadata
 from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 
+import markerpry
+
 
 # if TYPE_CHECKING:
 from typing import Optional, Dict, Any
@@ -235,40 +237,39 @@ def register_metapackages(pkg_name, pos_deps, neg_deps):
     }
 
 
-def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
-    dep_hash = hashlib.sha1(conda_dep.encode()).hexdigest()[:HASH_LENGTH]
-    marker_hash = hashlib.sha1(str(marker).encode()).hexdigest()[:HASH_LENGTH]
-    meta_pkg_name = f"_c_{dep_hash}_{marker_hash}"
-    markers = marker._markers
+PLATFORM_SPECIFIC_ENV = {
+    "win-64": { "os_name": ("nt", ) },
+    "win-32": { "os_name": ("nt", ) },
+    "linux-64": { "os_name": ("posix", ) },
+    "linux-aarch64": { "os_name": ("posix", ) },
+    "osx-64": { "os_name": ("posix", ) },
+    "osx-arm64": { "os_name": ("posix", ) },
+}
 
+
+def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
+    tree = markerpry.parse(str(marker))
     # TODO handle evaluation when possible (non-universal wheels)
-    if (
-        len(markers) == 1
-        and isinstance(markers[0], tuple)
-        and len(markers[0]) == 3
-        and str(markers[0][0]) == "os_name"
-        and str(markers[0][1]) == "=="
-    ):
+    if tree.contains("os_name"):
         if platform == "noarch":
             raise ArchSpecificDependency(
                 f"dependency {conda_dep} is arch-specific but platform is noarch"
             )
-        mapping = {
-            "win-64": "nt",
-            "win-32": "nt",
-            "linux-64": "posix",
-            "linux-aarch64": "posix",
-            "osx-64": "posix",
-            "osx-arm64": "posix",
-        }
-        if mapping.get(platform) != str(markers[0][2]):
+        env = PLATFORM_SPECIFIC_ENV.get(platform, {})
+        evaluated = tree.evaluate(env)
+        assert isinstance(evaluated, markerpry.node.BooleanNode)
+        if not evaluated.state:
             logger.debug(
-                f"Skipping dependency {conda_dep} because of os_name == {markers[0][2]} on platform {platform}"
+                f"Skipping dependency {conda_dep} because of os_name marker on platform {platform}"
             )
             return []
         else:
             # No metapackage is needed, we can just treat this as a normal dependency
             return [conda_dep]
+    dep_hash = hashlib.sha1(conda_dep.encode()).hexdigest()[:HASH_LENGTH]
+    marker_hash = hashlib.sha1(str(marker).encode()).hexdigest()[:HASH_LENGTH]
+    meta_pkg_name = f"_c_{dep_hash}_{marker_hash}"
+    markers = marker._markers
     if (
         len(markers) == 3
         and isinstance(markers[0], tuple)
