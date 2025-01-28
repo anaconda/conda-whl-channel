@@ -562,21 +562,22 @@ class ProjectGenerator:
             # TODO support free-threading
             return set(), []
 
-        # TODO python 2 and ABI thats that have suffix (m, d)
         if abi_tag.lower() == "none":
             if python_tag == ("py3"):
                 depends_from_filename = ["python >=3.0"]
                 return supported_platforms, depends_from_filename
-            elif python_tag.startswith("cp3"):
+            elif python_tag.startswith("cp3") or python_tag.startswith("py3"):
                 minor = python_tag[3:]
                 depends_from_filename = [f"python >=3.{minor}"]
                 return supported_platforms, depends_from_filename
+            elif python_tag.startswith("cp2"):
+                # TODO python 2 with no ABI
+                raise UnsupportedPythonInterpreter(f"unsupported python_tag: {python_tag}")
             else:
-                raise NotImplementedError(
-                    f"unsupported py_tag for none abi: {python_tag}"
-                )
+                raise NotImplementedError(f"unsupported py_tag for none abi: {python_tag}")
 
         if not abi_tag.startswith("cp3"):
+            # TODO python 2 and ABI thats that have suffix (m, d)
             raise UnsupportedPythonInterpreter(f"unsupported abi: {abi_tag}")
         try:
             minor = abi_tag[3:]
