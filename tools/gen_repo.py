@@ -311,11 +311,6 @@ def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
             # OR will produce two packages, one for each clause
             # AND will produce a single package that depends on both clauses
             raise NotImplementedError(f"complex marker: {tree}")
-
-    markers = marker._markers
-    if len(markers) != 1 or not isinstance(markers[0], tuple) or len(markers[0]) != 3:
-        # TODO figure out why this still hits
-        raise NotImplementedError(f"complex marker: {markers}")
     assert isinstance(tree, markerpry.ExpressionNode)
     variable, op, value = tree.lhs, tree.comparator, tree.rhs
     op = str(op)
