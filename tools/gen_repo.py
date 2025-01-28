@@ -237,30 +237,41 @@ def register_metapackages(pkg_name, pos_deps, neg_deps):
     }
 
 
+GENERIC_ENV = {
+    "platform_python_implementation": ("CPython", ),
+}
+
+
 PLATFORM_SPECIFIC_ENV = {
     "win-64": {
         "os_name": ("nt", ),
         "platform_system": ("Windows", ),
+        "platform_python_implementation": ("CPython", ),
     },
     "win-32": {
         "os_name": ("nt", ),
         "platform_system": ("Windows", ),
+        "platform_python_implementation": ("CPython", ),
     },
     "linux-64": {
         "os_name": ("posix", ),
         "platform_system": ("Linux", ),
+        "platform_python_implementation": ("CPython", ),
     },
     "linux-aarch64": {
         "os_name": ("posix", ),
         "platform_system": ("Linux", ),
+        "platform_python_implementation": ("CPython", ),
     },
     "osx-64": {
         "os_name": ("posix", ),
         "platform_system": ("Darwin", ),
+        "platform_python_implementation": ("CPython", ),
     },
     "osx-arm64": {
         "os_name": ("posix", ),
         "platform_system": ("Darwin", ),
+        "platform_python_implementation": ("CPython", ),
     },
 }
 
@@ -273,7 +284,13 @@ def _eval_with_state(tree: markerpry.Node, env) -> tuple[Optional[bool], markerp
 
 def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
     tree = markerpry.parse(str(marker))
-    # TODO handle evaluation when possible (non-universal wheels)
+    # evaluate with CPython environment
+    state, tree = _eval_with_state(tree, GENERIC_ENV)
+    if state is not None:
+        if state:
+            return [conda_dep]
+        return []
+    # handle platform specific evaluation when possible
     if tree.contains("os_name") or tree.contains("platform_system"):
         if platform == "noarch":
             raise ArchSpecificDependency(
@@ -290,6 +307,7 @@ def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
         else:
             # No metapackage is needed, we can just treat this as a normal dependency
             return [conda_dep]
+    # create meta-packages to encode conditional
     dep_hash = hashlib.sha1(conda_dep.encode()).hexdigest()[:HASH_LENGTH]
     marker_hash = hashlib.sha1(str(marker).encode()).hexdigest()[:HASH_LENGTH]
     meta_pkg_name = f"_c_{dep_hash}_{marker_hash}"
