@@ -306,13 +306,18 @@ def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
                     Marker(str(right)),
                     platform,
                 )
+        else:
+            # Use De Morgan's laws to express:
+            # OR will produce two packages, one for each clause
+            # AND will produce a single package that depends on both clauses
+            raise NotImplementedError(f"complex marker: {tree}")
+
     markers = marker._markers
     if len(markers) != 1 or not isinstance(markers[0], tuple) or len(markers[0]) != 3:
-        # User De Morgan's laws to express:
-        # OR will produce two packages, one for each clause
-        # AND will produce a single package that depends on both clauses
+        # TODO figure out why this still hits
         raise NotImplementedError(f"complex marker: {markers}")
-    variable, op, value = markers[0]
+    assert isinstance(tree, markerpry.ExpressionNode)
+    variable, op, value = tree.lhs, tree.comparator, tree.rhs
     op = str(op)
     nop = MIRROR_OP[op]
     if str(variable) == "python_version" or str(variable) == "python_full_version":
@@ -329,7 +334,6 @@ def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
         negative_deps = [negative_dep]
         register_metapackages(meta_pkg_name, positive_deps, negative_deps)
         return [meta_pkg_name]
-
     else:
         raise NotImplementedError(f"unsupported marker: {marker}")
 
