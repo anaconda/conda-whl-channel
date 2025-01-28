@@ -246,6 +246,12 @@ PLATFORM_SPECIFIC_ENV = {
     "osx-arm64": { "os_name": ("posix", ) },
 }
 
+def _eval_with_state(tree: markerpry.Node, env) -> tuple[Optional[bool], markerpry.Node]:
+    result = tree.evaluate(env)
+    if isinstance(result, markerpry.BooleanNode):
+        return result.state, result
+    return None, result
+
 
 def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
     tree = markerpry.parse(str(marker))
@@ -256,9 +262,9 @@ def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
                 f"dependency {conda_dep} is arch-specific but platform is noarch"
             )
         env = PLATFORM_SPECIFIC_ENV.get(platform, {})
-        evaluated = tree.evaluate(env)
-        assert isinstance(evaluated, markerpry.node.BooleanNode)
-        if not evaluated.state:
+        state, tree = _eval_with_state(tree, env)
+        assert state is not None
+        if not state:
             logger.debug(
                 f"Skipping dependency {conda_dep} because of os_name marker on platform {platform}"
             )
