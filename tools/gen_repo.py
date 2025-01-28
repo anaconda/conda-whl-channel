@@ -322,15 +322,15 @@ def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
             )
         env = PLATFORM_SPECIFIC_ENV.get(platform, {})
         state, tree = _eval_with_state(tree, env)
-        assert state is not None
-        if not state:
-            logger.debug(
-                f"Skipping dependency {conda_dep} because of os_name marker on platform {platform}"
-            )
-            return []
-        else:
-            # No metapackage is needed, we can just treat this as a normal dependency
-            return [conda_dep]
+        if state is not None:
+            if not state:
+                logger.debug(
+                    f"Skipping dependency {conda_dep} because of os_name marker on platform {platform}"
+                )
+                return []
+            else:
+                # No metapackage is needed, we can just treat this as a normal dependency
+                return [conda_dep]
     # create meta-packages to encode conditional
     dep_hash = hashlib.sha1(conda_dep.encode()).hexdigest()[:HASH_LENGTH]
     marker_hash = hashlib.sha1(str(marker).encode()).hexdigest()[:HASH_LENGTH]
