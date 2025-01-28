@@ -238,45 +238,58 @@ def register_metapackages(pkg_name, pos_deps, neg_deps):
 
 
 GENERIC_ENV = {
+    "implementation_name": ("cpython", ),
     "platform_python_implementation": ("CPython", ),
 }
 
 
 PLATFORM_SPECIFIC_ENV = {
     "win-64": {
+        "implementation_name": ("cpython", ),
         "os_name": ("nt", ),
         "platform_system": ("Windows", ),
         "platform_python_implementation": ("CPython", ),
+        "platform_machine": ("AMD64", ),
         "sys_platform": ("win32", ),
     },
     "win-32": {
+        "implementation_name": ("cpython", ),
         "os_name": ("nt", ),
         "platform_system": ("Windows", ),
         "platform_python_implementation": ("CPython", ),
+        "platform_machine": ("x86", ),  # validate this
         "sys_platform": ("win32", ),
     },
     "linux-64": {
+        "implementation_name": ("cpython", ),
         "os_name": ("posix", ),
         "platform_system": ("Linux", ),
         "platform_python_implementation": ("CPython", ),
+        "platform_machine": ("x86_64", ),
         "sys_platform": ("linux", ),
     },
     "linux-aarch64": {
+        "implementation_name": ("cpython", ),
         "os_name": ("posix", ),
         "platform_system": ("Linux", ),
         "platform_python_implementation": ("CPython", ),
+        "platform_machine": ("aarch64", ),
         "sys_platform": ("linux", ),
     },
     "osx-64": {
+        "implementation_name": ("cpython", ),
         "os_name": ("posix", ),
         "platform_system": ("Darwin", ),
         "platform_python_implementation": ("CPython", ),
+        "platform_machine": ("x86_64", ),
         "sys_platform": ("darwin", ),
     },
     "osx-arm64": {
+        "implementation_name": ("cpython", ),
         "os_name": ("posix", ),
         "platform_system": ("Darwin", ),
         "platform_python_implementation": ("CPython", ),
+        "platform_machine": ("arm64", ),
         "sys_platform": ("darwin", ),
     },
 }
