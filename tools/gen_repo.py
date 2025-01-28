@@ -275,21 +275,19 @@ def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
     dep_hash = hashlib.sha1(conda_dep.encode()).hexdigest()[:HASH_LENGTH]
     marker_hash = hashlib.sha1(str(marker).encode()).hexdigest()[:HASH_LENGTH]
     meta_pkg_name = f"_c_{dep_hash}_{marker_hash}"
-    markers = marker._markers
-    if (
-        len(markers) == 3
-        and isinstance(markers[0], tuple)
-        and len(markers[0]) == 3
-        and isinstance(markers[2], tuple)
-        and len(markers[2]) == 3
-    ):
-        variable1, op1, value1 = markers[0]
-        clause = markers[1]
-        variable2, op2, value2 = markers[2]
-        if str(variable1) == "python_version" and str(variable2) == "python_version":
+    if isinstance(tree, markerpry.OperatorNode):
+        right, left = tree.right, tree.left
+        if (
+            isinstance(right, markerpry.ExpressionNode)
+            and right.lhs == "python_version"
+            and isinstance(left, markerpry.ExpressionNode)
+            and left.lhs == "python_version"
+        ):
+            op1, value1 = left.comparator, left.rhs
+            op2, value2 = right.comparator, right.rhs
             nop1 = MIRROR_OP[str(op1)]
             nop2 = MIRROR_OP[str(op2)]
-            if clause == "and":
+            if tree.operator == "and":
                 positive_deps = [
                     f"python {op1}{value1}",
                     f"python {op2}{value2}",
@@ -298,17 +296,17 @@ def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
                 negative_deps = [f"python {nop1}{value1}", f"python {nop2}{value2}"]
                 register_metapackages(meta_pkg_name, positive_deps, negative_deps)
                 return [meta_pkg_name]
-            elif clause == "or":
+            elif tree.operator == "or":
                 return make_metapkgs(
                     conda_dep,
-                    Marker(f'{markers[0][0]} {markers[0][1]} "{markers[0][2]}"'),
+                    Marker(str(left)),
                     platform,
                 ) + make_metapkgs(
                     conda_dep,
-                    Marker(f'{markers[2][0]} {markers[2][1]} "{markers[2][2]}"'),
+                    Marker(str(right)),
                     platform,
                 )
-
+    markers = marker._markers
     if len(markers) != 1 or not isinstance(markers[0], tuple) or len(markers[0]) != 3:
         # User De Morgan's laws to express:
         # OR will produce two packages, one for each clause
