@@ -310,7 +310,12 @@ def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
             return [conda_dep]
         return []
     # handle platform specific evaluation when possible
-    if tree.contains("os_name") or tree.contains("platform_system") or tree.contains("sys_platform"):
+    if (
+        tree.contains("os_name")
+        or tree.contains("platform_system")
+        or tree.contains("sys_platform")
+        or tree.contains("platform_machine")
+    ):
         if platform == "noarch":
             raise ArchSpecificDependency(
                 f"dependency {conda_dep} is arch-specific but platform is noarch"
