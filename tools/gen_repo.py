@@ -238,12 +238,30 @@ def register_metapackages(pkg_name, pos_deps, neg_deps):
 
 
 PLATFORM_SPECIFIC_ENV = {
-    "win-64": { "os_name": ("nt", ) },
-    "win-32": { "os_name": ("nt", ) },
-    "linux-64": { "os_name": ("posix", ) },
-    "linux-aarch64": { "os_name": ("posix", ) },
-    "osx-64": { "os_name": ("posix", ) },
-    "osx-arm64": { "os_name": ("posix", ) },
+    "win-64": {
+        "os_name": ("nt", ),
+        "platform_system": ("Windows", ),
+    },
+    "win-32": {
+        "os_name": ("nt", ),
+        "platform_system": ("Windows", ),
+    },
+    "linux-64": {
+        "os_name": ("posix", ),
+        "platform_system": ("Linux", ),
+    },
+    "linux-aarch64": {
+        "os_name": ("posix", ),
+        "platform_system": ("Linux", ),
+    },
+    "osx-64": {
+        "os_name": ("posix", ),
+        "platform_system": ("Darwin", ),
+    },
+    "osx-arm64": {
+        "os_name": ("posix", ),
+        "platform_system": ("Darwin", ),
+    },
 }
 
 def _eval_with_state(tree: markerpry.Node, env) -> tuple[Optional[bool], markerpry.Node]:
@@ -256,7 +274,7 @@ def _eval_with_state(tree: markerpry.Node, env) -> tuple[Optional[bool], markerp
 def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
     tree = markerpry.parse(str(marker))
     # TODO handle evaluation when possible (non-universal wheels)
-    if tree.contains("os_name"):
+    if tree.contains("os_name") or tree.contains("platform_system"):
         if platform == "noarch":
             raise ArchSpecificDependency(
                 f"dependency {conda_dep} is arch-specific but platform is noarch"
@@ -316,13 +334,6 @@ def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
     op = str(op)
     nop = MIRROR_OP[op]
     if str(variable) == "python_version" or str(variable) == "python_full_version":
-        positive_dep = f"python {op}{value}"
-        negative_dep = f"python {nop}{value}"
-        positive_deps = [positive_dep, conda_dep]
-        negative_deps = [negative_dep]
-        register_metapackages(meta_pkg_name, positive_deps, negative_deps)
-        return [meta_pkg_name]
-    elif str(variable) == "platform_system":
         positive_dep = f"python {op}{value}"
         negative_dep = f"python {nop}{value}"
         positive_deps = [positive_dep, conda_dep]
