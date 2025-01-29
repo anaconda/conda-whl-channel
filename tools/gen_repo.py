@@ -297,6 +297,9 @@ PLATFORM_SPECIFIC_ENV = {
 
 def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
     tree = markerpry.parse_marker(marker)
+    if "extra" in tree:
+        logger.debug(f"skipping extra: {conda_dep}")
+        return []
     # evaluate with CPython environment
     tree = tree.evaluate(GENERIC_ENV)
     if tree.resolved:
@@ -405,12 +408,9 @@ def py_to_conda_reqs(
     conda_name = py_to_conda_name(req.name)
     conda_deps = [f"{conda_name} {req.specifier}".strip()]
     if req.marker:
-        markers = req.marker._markers
-        if any(isinstance(m, tuple) and str(m[0]) == "extra" for m in markers):
-            logger.debug(f"skipping extra: {req}")
-            return []
         conda_deps = make_metapkgs(conda_deps[0], req.marker, platform)
-        # logger.warning(f"including req with marker: '{req}'")
+        if len(conda_deps) == 0:
+            return conda_deps
     if req.extras:
         raise NotImplementedError(f"extras not supported: {req}")
     seen_py_names.add(canonicalize_name(req.name))
