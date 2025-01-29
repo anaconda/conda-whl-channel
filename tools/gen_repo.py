@@ -295,16 +295,16 @@ PLATFORM_SPECIFIC_ENV = {
 }
 
 
-def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
+def make_metapkgs(conda_deps: list[str], marker: Marker, platform: str) -> list[str]:
     tree = markerpry.parse_marker(marker)
     if "extra" in tree:
-        logger.debug(f"skipping extra: {conda_dep}")
+        logger.debug(f"skipping extra: {conda_deps}")
         return []
     # evaluate with CPython environment
     tree = tree.evaluate(GENERIC_ENV)
     if tree.resolved:
         if tree:
-            return [conda_dep]
+            return conda_deps
         return []
     # handle platform specific evaluation when possible
     if (
@@ -315,21 +315,22 @@ def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
     ):
         if platform == "noarch":
             raise ArchSpecificDependency(
-                f"dependency {conda_dep} is arch-specific but platform is noarch"
+                f"dependency {conda_deps} is arch-specific but platform is noarch"
             )
         env = PLATFORM_SPECIFIC_ENV.get(platform, {})
         tree = tree.evaluate(env)
         if tree.resolved:
             if not tree:
                 logger.debug(
-                    f"Skipping dependency {conda_dep} because of os_name marker on platform {platform}"
+                    f"Skipping dependency {conda_deps} because of os_name marker on platform {platform}"
                 )
                 return []
             else:
                 # No metapackage is needed, we can just treat this as a normal dependency
-                return [conda_dep]
+                return conda_deps
     # create meta-packages to encode conditional
-    dep_hash = hashlib.sha1(conda_dep.encode()).hexdigest()[:HASH_LENGTH]
+    dep_hash_str = "&".join(d for d in conda_deps)
+    dep_hash = hashlib.sha1(dep_hash_str.encode()).hexdigest()[:HASH_LENGTH]
     marker_hash = hashlib.sha1(str(marker).encode()).hexdigest()[:HASH_LENGTH]
     meta_pkg_name = f"_c_{dep_hash}_{marker_hash}"
     if isinstance(tree, markerpry.OperatorNode):
@@ -348,18 +349,18 @@ def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
                 positive_deps = [
                     f"python {op1}{value1}",
                     f"python {op2}{value2}",
-                    conda_dep,
+                    *conda_deps,
                 ]
                 negative_deps = [f"python {nop1}{value1}", f"python {nop2}{value2}"]
                 register_metapackages(meta_pkg_name, positive_deps, negative_deps)
                 return [meta_pkg_name]
             elif tree.operator == "or":
                 return make_metapkgs(
-                    conda_dep,
+                    conda_deps,
                     Marker(str(left)),
                     platform,
                 ) + make_metapkgs(
-                    conda_dep,
+                    conda_deps,
                     Marker(str(right)),
                     platform,
                 )
@@ -375,7 +376,7 @@ def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
     if str(variable) == "python_version" or str(variable) == "python_full_version":
         positive_dep = f"python {op}{value}"
         negative_dep = f"python {nop}{value}"
-        positive_deps = [positive_dep, conda_dep]
+        positive_deps = [positive_dep, *conda_deps]
         negative_deps = [negative_dep]
         register_metapackages(meta_pkg_name, positive_deps, negative_deps)
         return [meta_pkg_name]
@@ -408,7 +409,7 @@ def py_to_conda_reqs(
     conda_name = py_to_conda_name(req.name)
     conda_deps = [f"{conda_name} {req.specifier}".strip()]
     if req.marker:
-        conda_deps = make_metapkgs(conda_deps[0], req.marker, platform)
+        conda_deps = make_metapkgs(conda_deps, req.marker, platform)
         if len(conda_deps) == 0:
             return conda_deps
     if req.extras:
