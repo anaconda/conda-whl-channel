@@ -48,7 +48,7 @@ Setup environments for generating and server a local repo:
 
 ```
 conda create --prefix gen_env python=3.12 pip --yes
-./gen_env/bin/python -m pip install pypi-simple packaging requests python-dotenv requests-cache "markerpry>=0.2"
+./gen_env/bin/python -m pip install pypi-simple packaging requests python-dotenv requests-cache "markerpry>=0.3"
 
 ```
 
