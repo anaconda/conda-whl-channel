@@ -311,10 +311,10 @@ def make_metapkgs(conda_dep: str, marker: Marker, platform: str) -> list[str]:
         return []
     # handle platform specific evaluation when possible
     if (
-        tree.contains("os_name")
-        or tree.contains("platform_system")
-        or tree.contains("sys_platform")
-        or tree.contains("platform_machine")
+        "os_name" in tree
+        or "platform_system" in tree
+        or "sys_platform" in tree
+        or "platform_machine" in tree
     ):
         if platform == "noarch":
             raise ArchSpecificDependency(
