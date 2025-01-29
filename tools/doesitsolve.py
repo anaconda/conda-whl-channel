@@ -7,7 +7,6 @@ from typing import Dict, Optional, TypedDict
 import multiprocessing as mp
 from functools import partial
 from itertools import chain
-from filelock import FileLock
 import uuid
 import shutil
 import tempfile
