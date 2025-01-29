@@ -68,6 +68,7 @@ def process_row(row: dict, logs: list[str]) -> WheelResult:
                         'python_full_version': ['3.10.13'],
                         'python_version': ['3.10'],
                         'sys_platform': ['darwin'],
+                        'extra': [False],
                     }
                     solved = tree.evaluate(environment)
                     if isinstance(solved, markerpry.BooleanNode):
