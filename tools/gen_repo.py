@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 import hashlib
 import argparse
+from collections import defaultdict
 
 import requests_cache
 from pypi_simple import PyPISimple, ACCEPT_JSON_ONLY
@@ -201,6 +202,30 @@ def get_file_sha_and_size(file_path):
     return sha256_hash.hexdigest(), file_size
 
 
+def create_extra_metapackage(
+    rdata: "CondaPackageMetadata", extra: str, deps: list[str],
+) -> "CondaPackageMetadata":
+    global META_SHA_256, META_SIZE
+    if META_SHA_256 is None or META_SIZE is None:
+        project_path = Path(__file__).parent.parent / "sample-1.0-0.tar.bz2"
+        if not project_path.exists():
+            raise FileNotFoundError(f"Could not find {project_path}")
+        META_SHA_256, META_SIZE = get_file_sha_and_size(project_path)
+    name = py_to_conda_name(f"{rdata.name}-with-{extra}")
+    filename = f"{name}-{rdata.version}-{rdata.build}.tar.bz2"
+    metapkg = CondaPackageMetadata(
+        filename=filename,
+        build=rdata.build,
+        depends=deps + [f"{rdata.name} {rdata.version} {rdata.build}"],
+        name=name,
+        sha256=META_SHA_256,
+        version=rdata.version,
+        subdir=rdata.subdir,
+        size=META_SIZE,
+    )
+    return metapkg
+
+
 def register_metapackages(pkg_name, pos_deps, neg_deps):
     global META_SHA_256, META_SIZE
     if META_SHA_256 is None or META_SIZE is None:
@@ -295,8 +320,15 @@ PLATFORM_SPECIFIC_ENV = {
 }
 
 
-def make_metapkgs(conda_deps: list[str], marker: Marker, platform: str) -> list[str]:
+def make_metapkgs(
+        conda_deps: list[str],
+        marker: Marker,
+        platform: str,
+        requested_extra: Optional[str],
+    ) -> list[str]:
     tree = markerpry.parse_marker(marker)
+    if requested_extra is not None:
+        tree = tree.evaluate({"extra": (requested_extra, )})
     if "extra" in tree:
         logger.debug(f"skipping extra: {conda_deps}")
         return []
@@ -359,10 +391,12 @@ def make_metapkgs(conda_deps: list[str], marker: Marker, platform: str) -> list[
                     conda_deps,
                     Marker(str(left)),
                     platform,
+                    requested_extra,
                 ) + make_metapkgs(
                     conda_deps,
                     Marker(str(right)),
                     platform,
+                    requested_extra,
                 )
         else:
             # Use De Morgan's laws to express:
@@ -404,18 +438,21 @@ def py_to_conda_name(name: str) -> str:
 
 
 def py_to_conda_reqs(
-    req: Requirement, seen_py_names: set[str], platform: str
+    req: Requirement, seen_py_names: set[str], platform: str, requested_extra: Optional[str] = None,
 ) -> list[str]:
+    if requested_extra is not None:
+        if not req.marker:
+            return []
     conda_name = py_to_conda_name(req.name)
     conda_deps = [f"{conda_name} {req.specifier}".strip()]
     if req.extras:
         #register_extras_in_deps(conda_name, req.extras)
-        conda_deps = [
+        conda_deps = sorted([
             f"{conda_name}-with-{extra} {req.specifier}".strip()
             for extra in req.extras
-        ]
+        ])
     if req.marker:
-        conda_deps = make_metapkgs(conda_deps, req.marker, platform)
+        conda_deps = make_metapkgs(conda_deps, req.marker, platform, requested_extra)
         if len(conda_deps) == 0:
             return conda_deps
     seen_py_names.add(canonicalize_name(req.name))
@@ -463,11 +500,13 @@ class ProjectGenerator:
         self,
         client: PyPISimple,
         project: str,
+        extras: set[str],
         platforms: set[str],
         spec: SpecifierSet | None,
     ):
         self.client = client
         self.project = project
+        self.extras = extras
         self.platforms = platforms
         self.spec = spec or SpecifierSet()
         self.seen_py_names = set()
@@ -611,11 +650,16 @@ class ProjectGenerator:
             else:
                 py_dep = "python"
             depends.append(py_dep)
+            depends_for_extra = defaultdict(list)
 
             if mdata.requires_dist:
                 for py_req in mdata.requires_dist:
-                    conda_deps = py_to_conda_reqs(py_req, self.seen_py_names, subdir)
+                    conda_deps = py_to_conda_reqs(py_req, self.seen_py_names, subdir, None)
                     depends.extend(conda_deps)
+                    for extra in self.extras:
+                        extra_deps = py_to_conda_reqs(py_req, self.seen_py_names, subdir, extra)
+                        if extra_deps:
+                            depends_for_extra[extra].extend(extra_deps)
 
             rdata = CondaPackageMetadata(
                 filename=pkg.filename,
@@ -629,12 +673,16 @@ class ProjectGenerator:
                 size=pkg.size,
             )
             pkgs.append(rdata)
+            for extra, deps in depends_for_extra.items():
+                metapkg = create_extra_metapackage(rdata, extra, deps)
+                pkgs.append(metapkg)
         return pkgs
 
 
 def create_repodata(
     specs: dict[str, list[SpecifierSet]],
     platforms: set[str],
+    extras_to_include: dict[str, set[str]],
     proc_dependencies: bool = False,
     session: Optional[Session] = None,
 ) -> Dict[str, Dict[Any, Any]]:
@@ -647,11 +695,12 @@ def create_repodata(
     while to_do_projects:
         project = to_do_projects.pop()
         done_projects.add(project)
+        extras = extras_to_include.get(project, {})
         try:
             logger.info(f"creating repodata entries for project: {project}")
             # Process each specifier set for the project
             for spec in specs[project]:
-                gen = ProjectGenerator(client, project, platforms, spec)
+                gen = ProjectGenerator(client, project, extras, platforms, spec)
                 conda_pkgs.extend(gen.conda_pkgs)
 
                 logger.debug(f"projects visited: {gen.seen_py_names}")
@@ -698,6 +747,18 @@ def parse_requirements_file(file_path: Path) -> Dict[str, list[SpecifierSet]]:
     return specs
 
 
+def parse_extras_file(file_path: Optional[Path]) -> Dict[str, set[str]]:
+    """Parse extras file into dict of package name to set of extras."""
+    extras: Dict[str, set[str]] = defaultdict(set)
+    if not file_path:
+        return extras
+    with open(file_path, "r") as f:
+        for line in f:
+            req = Requirement(line.strip())
+            extras[req.name].update(req.extras)
+    return extras
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(description="Generate repository data.")
@@ -729,6 +790,13 @@ if __name__ == "__main__":
         default=False,
         help="Cache (and use) PyPI responses",
     )
+    parser.add_argument(
+        "-e",
+        "--extra",
+        type=str,
+        required=False,
+        help="requirements.txt style file with extras that will be created",
+    )
 
     args = parser.parse_args()
 
@@ -736,6 +804,7 @@ if __name__ == "__main__":
     if not file_path.exists():
         raise FileNotFoundError(f"Could not find {file_path}")
     specs = parse_requirements_file(file_path)
+    extras_to_include = parse_extras_file(args.extra)
     if args.cache:
         session = requests_cache.CachedSession("pypi_cache")
     else:
@@ -743,6 +812,7 @@ if __name__ == "__main__":
     repodata = create_repodata(
         specs,
         set(args.platform),
+        extras_to_include,
         proc_dependencies=args.recurse,
         session=session,
     )
