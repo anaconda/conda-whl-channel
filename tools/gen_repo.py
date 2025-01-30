@@ -408,12 +408,16 @@ def py_to_conda_reqs(
 ) -> list[str]:
     conda_name = py_to_conda_name(req.name)
     conda_deps = [f"{conda_name} {req.specifier}".strip()]
+    if req.extras:
+        #register_extras_in_deps(conda_name, req.extras)
+        conda_deps = [
+            f"{conda_name}-with-{extra} {req.specifier}".strip()
+            for extra in req.extras
+        ]
     if req.marker:
         conda_deps = make_metapkgs(conda_deps, req.marker, platform)
         if len(conda_deps) == 0:
             return conda_deps
-    if req.extras:
-        raise NotImplementedError(f"extras not supported: {req}")
     seen_py_names.add(canonicalize_name(req.name))
     return conda_deps
 
