@@ -202,6 +202,10 @@ def get_file_sha_and_size(file_path):
     return sha256_hash.hexdigest(), file_size
 
 
+def extra_pkg_name(conda_name: str, extra: str) -> str:
+    return f"_c_{conda_name}-with-{extra}"
+
+
 def create_extra_metapackage(
     rdata: "CondaPackageMetadata", extra: str, deps: list[str],
 ) -> "CondaPackageMetadata":
@@ -211,11 +215,12 @@ def create_extra_metapackage(
         if not project_path.exists():
             raise FileNotFoundError(f"Could not find {project_path}")
         META_SHA_256, META_SIZE = get_file_sha_and_size(project_path)
-    name = py_to_conda_name(f"{rdata.name}-with-{extra}")
-    filename = f"{name}-{rdata.version}-{rdata.build}.tar.bz2"
+    name = extra_pkg_name(rdata.name, extra)
+    short_hash = META_SHA_256[:8]
+    filename = f"{name}-{rdata.version}-{rdata.build}_{short_hash}.tar.bz2"
     metapkg = CondaPackageMetadata(
         filename=filename,
-        build=rdata.build,
+        build=f"{rdata.build}_{short_hash}",
         depends=deps + [f"{rdata.name} {rdata.version} {rdata.build}"],
         name=name,
         sha256=META_SHA_256,
@@ -448,7 +453,7 @@ def py_to_conda_reqs(
     if req.extras:
         #register_extras_in_deps(conda_name, req.extras)
         conda_deps = sorted([
-            f"{conda_name}-with-{extra} {req.specifier}".strip()
+            f"{extra_pkg_name(conda_name, extra)} {req.specifier}".strip()
             for extra in req.extras
         ])
     if req.marker:
