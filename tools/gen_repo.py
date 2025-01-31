@@ -560,6 +560,9 @@ class ProjectGenerator:
                     conda_pkgs.extend(conda_pkg)
                 else:
                     raise e
+            except Exception as e:
+                logger.error(f"error processing {pkg.filename}: {e}")
+
 
         return conda_pkgs
 
