@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import hashlib
 import argparse
 from collections import defaultdict
+from functools import lru_cache
 
 import requests_cache
 from pypi_simple import PyPISimple, ACCEPT_JSON_ONLY
@@ -24,6 +25,7 @@ import markerpry
 from typing import Optional, Dict, Any
 from pypi_simple import DistributionPackage
 from packaging.markers import Marker
+import requests
 from requests import Session
 
 
@@ -31,6 +33,29 @@ HASH_LENGTH = 7  # git --short default
 
 
 logger = logging.getLogger()
+
+
+@lru_cache(maxsize=1)
+def get_py_to_conda_mapping() -> Dict[str, str]:
+    """
+    Download and cache the grayskull mapping from GitHub.
+    Returns a dictionary mapping PyPI package names to conda package names.
+    """
+    url = "https://raw.githubusercontent.com/prefix-dev/parselmouth/refs/heads/main/files/mapping_as_grayskull.json"
+    
+    response = requests.get(url, timeout=30)
+    response.raise_for_status()
+    grayskull_mapping = response.json()
+    
+    # Filter out entries where key equals value and reverse the mapping
+    # grayskull mapping is conda -> pypi, we need pypi -> conda
+    py_to_conda = {}
+    for conda_name, pypi_name in grayskull_mapping.items():
+        if conda_name != pypi_name:  # Filter out where key equals value
+            py_to_conda[pypi_name] = conda_name
+    
+    logger.info(f"Loaded {len(py_to_conda)} PyPI to conda mappings from grayskull")
+    return py_to_conda
 
 
 def empty_repodata(subdir: str):
@@ -43,132 +68,6 @@ def empty_repodata(subdir: str):
     }
 
 
-PY_TO_CONDA_NAME = {
-    "async-generator": "async_generator",
-    "backports-functools-lru-cache": "backports.functools_lru_cache",
-    "backports-lzma": "backports.lzma",
-    "backports-os": "backports.os",
-    "backports-shutil-get-terminal-size": "backports.shutil_get_terminal_size",
-    "backports-shutil-which": "backports.shutil_which",
-    "backports-tarfile": "backports.tarfile",
-    "backports-tempfile": "backports.tempfile",
-    "backports-weakref": "backports.weakref",
-    "backports-zoneinfo": "backports.zoneinfo",
-    "backports-abc": "backports_abc",
-    "boolean-py": "boolean.py",
-    "category-encoders": "category_encoders",
-    "clr-loader": "clr_loader",
-    "cmake-setuptools": "cmake_setuptools",
-    "cx-oracle": "cx_oracle",
-    "dash-cytoscape": "dash_cytoscape",
-    "essential-generators": "essential_generators",
-    "et-xmlfile": "et_xmlfile",
-    "factory-boy": "factory_boy",
-    "flask-cors": "flask_cors",
-    "func-timeout": "func_timeout",
-    "huggingface-hub": "huggingface_hub",
-    "idna-ssl": "idna_ssl",
-    "importlib-resources": "importlib_resources",
-    "interface-meta": "interface_meta",
-    "ipython-genutils": "ipython_genutils",
-    "jaraco-classes": "jaraco.classes",
-    "jaraco-collections": "jaraco.collections",
-    "jaraco-context": "jaraco.context",
-    "jaraco-functools": "jaraco.functools",
-    "jaraco-itertools": "jaraco.itertools",
-    "jaraco-test": "jaraco.test",
-    "jaraco-text": "jaraco.text",
-    "jupyter-bokeh": "jupyter_bokeh",
-    "jupyter-client": "jupyter_client",
-    "jupyter-console": "jupyter_console",
-    "jupyter-core": "jupyter_core",
-    "jupyter-dashboards-bundlers": "jupyter_dashboards_bundlers",
-    "jupyter-events": "jupyter_events",
-    "jupyter-kernel-gateway": "jupyter_kernel_gateway",
-    "jupyter-server": "jupyter_server",
-    "jupyter-server-fileid": "jupyter_server_fileid",
-    "jupyter-server-terminals": "jupyter_server_terminals",
-    "jupyter-server-ydoc": "jupyter_server_ydoc",
-    "jupyter-telemetry": "jupyter_telemetry",
-    "jupyter-ydoc": "jupyter_ydoc",
-    "jupyterlab-code-formatter": "jupyterlab_code_formatter",
-    "jupyterlab-launcher": "jupyterlab_launcher",
-    "jupyterlab-pygments": "jupyterlab_pygments",
-    "jupyterlab-server": "jupyterlab_server",
-    "jupyterlab-widgets": "jupyterlab_widgets",
-    "keyrings-alt": "keyrings.alt",
-    "korean-lunar-calendar": "korean_lunar_calendar",
-    "lazy-loader": "lazy_loader",
-    "line-profiler": "line_profiler",
-    "medspacy-quickumls": "medspacy_quickumls",
-    "memory-profiler": "memory_profiler",
-    "ml-dtypes": "ml_dtypes",
-    "multi-key-dict": "multi_key_dict",
-    "mypy-extensions": "mypy_extensions",
-    "opentracing-instrumentation": "opentracing_instrumentation",
-    "opt-einsum": "opt_einsum",
-    "parse-type": "parse_type",
-    "path-py": "path.py",
-    "plaster-pastedeploy": "plaster_pastedeploy",
-    "posix-ipc": "posix_ipc",
-    "prometheus-client": "prometheus_client",
-    "prometheus-flask-exporter": "prometheus_flask_exporter",
-    "prompt-toolkit": "prompt_toolkit",
-    "pure-eval": "pure_eval",
-    "lief": "py-lief",
-    "mxnet": "py-mxnet",
-    "xgboost": "py-xgboost",
-    "xgboost-cpu": "py-xgboost-cpu",
-    "pyproject-hooks": "pyproject_hooks",
-    "pyramid-debugtoolbar": "pyramid_debugtoolbar",
-    "pyramid-jinja2": "pyramid_jinja2",
-    "pyramid-mako": "pyramid_mako",
-    "pyramid-tm": "pyramid_tm",
-    "blosc": "python-blosc",
-    "chromedriver-binary": "python-chromedriver-binary",
-    "dateutil": "python-dateutil",
-    "fastjsonschema": "python-fastjsonschema",
-    "flatbuffers": "python-flatbuffers",
-    "gil": "python-gil",
-    "graphviz": "python-graphviz",
-    "kaleido": "python-kaleido",
-    "leveldb": "python-leveldb",
-    "libarchive-c": "python-libarchive-c",
-    "tzdata": "python-tzdata",
-    "xxhash": "python-xxhash",
-    "zstd": "python-zstd",
-    "python-app": "python.app",
-    "python-http-client": "python_http_client",
-    "pyviz-comms": "pyviz_comms",
-    "querystring-parser": "querystring_parser",
-    "readme-renderer": "readme_renderer",
-    "repoze-lru": "repoze.lru",
-    "requests-download": "requests_download",
-    "requests-ntlm": "requests_ntlm",
-    "ruamel-yaml": "ruamel_yaml",
-    "ruamel-yaml-clib": "ruamel.yaml.clib",
-    "ruamel-yaml-jinja2": "ruamel.yaml.jinja2",
-    "sarif-om": "sarif_om",
-    "semantic-version": "semantic_version",
-    "service-identity": "service_identity",
-    "setuptools-scm": "setuptools_scm",
-    "setuptools-scm-git-archive": "setuptools_scm_git_archive",
-    "slack-sdk": "slack_sdk",
-    "smart-open": "smart_open",
-    "sphinx-rtd-theme": "sphinx_rtd_theme",
-    "stack-data": "stack_data",
-    "thrift-sasl": "thrift_sasl",
-    "typing-extensions": "typing_extensions",
-    "typing-inspect": "typing_inspect",
-    "vega-datasets": "vega_datasets",
-    "win32-setctime": "win32_setctime",
-    "zc-lockfile": "zc.lockfile",
-    "zope-component": "zope.component",
-    "zope-deprecation": "zope.deprecation",
-    "zope-event": "zope.event",
-    "zope-interface": "zope.interface",
-    "zope-sqlalchemy": "zope.sqlalchemy",
-}
 
 MIRROR_OP = {
     ">": "<=",
@@ -438,7 +337,8 @@ def write_as_json_to_file(file_path: str, obj: Any):
 
 def py_to_conda_name(name: str) -> str:
     canonical_name = canonicalize_name(name)
-    conda_name = PY_TO_CONDA_NAME.get(canonical_name, canonical_name)
+    mapping = get_py_to_conda_mapping()
+    conda_name = mapping.get(canonical_name, canonical_name)
     return conda_name
 
 
