@@ -8,3 +8,4 @@ __pycache__/
 .DS_Store
 marker_investigation.txt
 scratch.md
+specs/test.txt

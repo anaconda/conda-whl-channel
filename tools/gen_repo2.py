@@ -57,6 +57,43 @@ def get_matching_wheels(specs: Dict[str, list[SpecifierSet]], wheels_dir: Path) 
     return wheels_to_parse
 
 
+def _ensure_pure_python(wheels_paths: List[Path]) -> None:
+    """Ensure all wheels are pure Python (noarch) packages.
+    
+    Args:
+        wheels_paths: List of Path objects for wheel files to check
+        
+    Raises:
+        SystemExit: If any wheel is not a pure Python package
+    """
+    for wheel_path in wheels_paths:
+        try:
+            name, version, build, tags = parse_wheel_filename(wheel_path.name)
+            
+            # Check if this is a pure Python wheel
+            # Pure Python wheels should have 'py2.py3-none-any' or similar patterns
+            # that indicate they work on any platform and any Python version
+            is_pure_python = False
+            
+            for tag in tags:
+                # Check if the tag indicates pure Python (py2.py3-none-any pattern)
+                if (tag.interpreter in ['py2.py3', 'py3'] and 
+                    tag.abi == 'none' and 
+                    tag.platform == 'any'):
+                    is_pure_python = True
+                    break
+            
+            if not is_pure_python:
+                print(f"Error: Wheel {wheel_path.name} is not a pure Python package.")
+                print(f"  Tags: {[str(tag) for tag in tags]}")
+                print("Only pure Python (noarch) packages are supported.")
+                raise SystemExit(1)
+                
+        except Exception as e:
+            print(f"Error: Could not parse wheel {wheel_path.name}: {e}")
+            raise SystemExit(1)
+
+
 def extract_wheel_metadata(wheel_path: Path) -> Dict[str, Optional[str]]:
     """Extract metadata from a wheel file using packaging.metadata.from_email.
     
@@ -129,6 +166,9 @@ if __name__ == "__main__":
     
     specs = parse_requirements_file(file_path)
     matching_wheels = get_matching_wheels(specs, wheels_dir)
+    
+    # Ensure all wheels are pure Python (noarch) packages
+    _ensure_pure_python(matching_wheels)
     
     print(f"Found {len(matching_wheels)} matching wheels:")
     for wheel in matching_wheels:
