@@ -1,9 +1,11 @@
 import argparse
+import zipfile
 from pathlib import Path
 from packaging.requirements import Requirement
 from packaging.specifiers import SpecifierSet
 from packaging.utils import parse_wheel_filename
-from typing import Dict, List
+from packaging.metadata import Metadata
+from typing import Dict, List, Optional
 
 
 def parse_requirements_file(file_path: Path) -> Dict[str, list[SpecifierSet]]:
@@ -55,6 +57,49 @@ def get_matching_wheels(specs: Dict[str, list[SpecifierSet]], wheels_dir: Path) 
     return wheels_to_parse
 
 
+def extract_wheel_metadata(wheel_path: Path) -> Dict[str, Optional[str]]:
+    """Extract metadata from a wheel file using packaging.metadata.from_email.
+    
+    Args:
+        wheel_path: Path to the wheel file
+        
+    Returns:
+        Dictionary containing name, version, requires_dist, and requires_python
+    """
+    metadata = {
+        'name': None,
+        'version': None,
+        'requires_dist': None,
+        'requires_python': None
+    }
+    
+    try:
+        with zipfile.ZipFile(wheel_path, 'r') as wheel:
+            # Look for METADATA file in the wheel
+            metadata_files = [f for f in wheel.namelist() if f.endswith('METADATA')]
+            
+            if not metadata_files:
+                print(f"Warning: No METADATA file found in {wheel_path.name}")
+                return metadata
+            
+            # Read the METADATA file content
+            with wheel.open(metadata_files[0]) as metadata_file:
+                raw_metadata = metadata_file.read().decode('utf-8')
+            
+            # Use packaging.metadata.from_email to parse the metadata
+            mdata = Metadata.from_email(raw_metadata, validate=False)
+            
+            metadata['name'] = mdata.name
+            metadata['version'] = str(mdata.version) if mdata.version else None
+            metadata['requires_dist'] = [str(req) for req in mdata.requires_dist] if mdata.requires_dist else None
+            metadata['requires_python'] = str(mdata.requires_python) if mdata.requires_python else None
+                        
+    except Exception as e:
+        print(f"Error reading metadata from {wheel_path.name}: {e}")
+    
+    return metadata
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate conda repodata from wheels.")
     parser.add_argument(
@@ -87,4 +132,14 @@ if __name__ == "__main__":
     
     print(f"Found {len(matching_wheels)} matching wheels:")
     for wheel in matching_wheels:
-        print(f"  {wheel}")
+        print(f"\nWheel: {wheel}")
+        metadata = extract_wheel_metadata(wheel)
+        print(f"  Name: {metadata['name']}")
+        print(f"  Version: {metadata['version']}")
+        print(f"  Requires-Python: {metadata['requires_python']}")
+        if metadata['requires_dist']:
+            print(f"  Requires-Dist:")
+            for req in metadata['requires_dist']:
+                print(f"    {req}")
+        else:
+            print(f"  Requires-Dist: None")
