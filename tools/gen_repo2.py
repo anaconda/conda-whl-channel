@@ -1,4 +1,5 @@
 import argparse
+import codecs
 import hashlib
 import json
 import os
@@ -218,6 +219,36 @@ def get_file_sha_and_size(file_path: Path) -> tuple[str, int]:
     return sha256_hash.hexdigest(), file_size
 
 
+def empty_repodata(subdir: str):
+    """Create an empty repodata structure for a subdirectory."""
+    return {
+        "info": {"subdir": subdir},
+        "packages": {},
+        "packages.conda": {},
+        "removed": [],
+        "repodata_version": 1,
+    }
+
+
+def write_as_json_to_file(file_path: str, obj: Any):
+    """Write an object as JSON to a file, matching conda's format."""
+    with codecs.open(file_path, mode="wb", encoding="utf-8") as fo:
+        json_str = json.dumps(
+            obj,
+            indent=2,
+            sort_keys=True,
+            separators=(",", ": "),
+        )
+        fo.write(json_str)
+
+
+def write_repodata(repodata: Dict[str, Dict[Any, Any]], repo_base_path: str):
+    """Write repodata to files for each platform."""
+    for platform, subdir_data in repodata.items():
+        os.makedirs(f"{repo_base_path}/{platform}", exist_ok=True)
+        write_as_json_to_file(f"{repo_base_path}/{platform}/repodata.json", subdir_data)
+
+
 def repodata_for_package(wheel_path: Path) -> CondaPackageMetadata:
     """Generate conda repodata entry for a wheel package.
     
@@ -290,6 +321,13 @@ if __name__ == "__main__":
         required=True,
         help="Directory containing wheel files",
     )
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        type=str,
+        default="./repo",
+        help="Output directory for repodata files (default: ./repo)",
+    )
 
     args = parser.parse_args()
 
@@ -307,9 +345,28 @@ if __name__ == "__main__":
     # Ensure all wheels are pure Python (noarch) packages
     _ensure_pure_python(matching_wheels)
     
-    print(f"Found {len(matching_wheels)} matching wheels:")
+    print(f"Found {len(matching_wheels)} matching wheels")
+    
+    # Create repodata structure
+    repodata = {}
+    platform = "noarch"  # All wheels are noarch
+    
+    # Create empty repodata for the platform
+    subdir_data = empty_repodata(platform)
+    packages = {}
+    
+    # Process each wheel and add to packages
     for wheel in matching_wheels:
-        print(f"\nWheel: {wheel}")
-        repodata = repodata_for_package(wheel)
-        print(f"Repodata entry:")
-        print(json.dumps(repodata.repodata_entry, indent=2))
+        print(f"Processing: {wheel.name}")
+        conda_pkg = repodata_for_package(wheel)
+        packages[conda_pkg.filename] = conda_pkg.repodata_entry
+    
+    # Add packages to repodata
+    subdir_data["packages"] = packages
+    repodata[platform] = subdir_data
+    
+    # Write repodata to files
+    print(f"Writing repodata to {args.output_dir}")
+    write_repodata(repodata, args.output_dir)
+    
+    print(f"Successfully generated repodata for {len(packages)} packages")
