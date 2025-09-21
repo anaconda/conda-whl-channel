@@ -1,11 +1,82 @@
 import argparse
+import hashlib
+import json
+import os
 import zipfile
+from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from packaging.requirements import Requirement
 from packaging.specifiers import SpecifierSet
-from packaging.utils import parse_wheel_filename
+from packaging.utils import parse_wheel_filename, canonicalize_name
 from packaging.metadata import Metadata
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
+import requests
+
+
+@lru_cache(maxsize=1)
+def get_py_to_conda_mapping() -> Dict[str, str]:
+    """
+    Download and cache the grayskull mapping from GitHub.
+    Returns a dictionary mapping PyPI package names to conda package names.
+    """
+    url = "https://raw.githubusercontent.com/prefix-dev/parselmouth/refs/heads/main/files/mapping_as_grayskull.json"
+    
+    response = requests.get(url, timeout=30)
+    response.raise_for_status()
+    grayskull_mapping = response.json()
+    
+    # Filter out entries where key equals value and reverse the mapping
+    # grayskull mapping is conda -> pypi, we need pypi -> conda
+    py_to_conda = {}
+    for conda_name, pypi_name in grayskull_mapping.items():
+        if conda_name != pypi_name:  # Filter out where key equals value
+            py_to_conda[pypi_name] = conda_name
+    
+    print(f"Loaded {len(py_to_conda)} PyPI to conda mappings from grayskull")
+    return py_to_conda
+
+
+def py_to_conda_name(name: str) -> str:
+    canonical_name = canonicalize_name(name)
+    mapping = get_py_to_conda_mapping()
+    conda_name = mapping.get(canonical_name, canonical_name)
+    return conda_name
+
+
+@dataclass
+class CondaPackageMetadata:
+    # https://docs.conda.io/projects/conda/en/stable/user-guide/concepts/pkg-specs.html
+    build: str = "0"
+    build_number: int = 0
+    depends: list[str] = field(default_factory=list)
+    filename: str = ""
+    md5: str | None = None
+    name: str = ""
+    noarch: str | None = None
+    sha256: str | None = None
+    size: int = 0
+    subdir: str | None = None
+    timestamp: int = 0
+    version: str = ""
+
+    @property
+    def repodata_entry(self) -> dict[Any, Any]:
+        # these are required
+        entry = {
+            "build": self.build,
+            "build_number": self.build_number,
+            "depends": self.depends,
+            "name": self.name,
+            "size": self.size,
+            "timestamp": self.timestamp,
+            "version": self.version,
+        }
+        for key in ["md5", "noarch", "sha256", "subdir"]:
+            value = getattr(self, key)
+            if value is not None:
+                entry[key] = value
+        return entry
 
 
 def parse_requirements_file(file_path: Path) -> Dict[str, list[SpecifierSet]]:
@@ -137,6 +208,72 @@ def extract_wheel_metadata(wheel_path: Path) -> Dict[str, Optional[str]]:
     return metadata
 
 
+def get_file_sha_and_size(file_path: Path) -> tuple[str, int]:
+    """Get SHA256 hash and size of a file."""
+    sha256_hash = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+    file_size = os.path.getsize(file_path)
+    return sha256_hash.hexdigest(), file_size
+
+
+def repodata_for_package(wheel_path: Path) -> CondaPackageMetadata:
+    """Generate conda repodata entry for a wheel package.
+    
+    Args:
+        wheel_path: Path to the wheel file
+        
+    Returns:
+        CondaPackageMetadata object representing the conda package
+    """
+    # Extract metadata from the wheel
+    metadata = extract_wheel_metadata(wheel_path)
+    
+    # Parse wheel filename to get build info
+    name, version, build, tags = parse_wheel_filename(wheel_path.name)
+    
+    # Convert pip name to conda name
+    conda_name = py_to_conda_name(metadata['name'] or name)
+    
+    # Create build string from wheel filename components
+    # Extract python_tag, abi_tag, platform_tag from filename like gen_repo.py does
+    filename_parts = wheel_path.name.removesuffix(".whl").rsplit("-", maxsplit=3)
+    if len(filename_parts) == 4:
+        _, python_tag, abi_tag, platform_tag = filename_parts
+        build_string = f"{python_tag}_{abi_tag}_{platform_tag}"
+    else:
+        # Fallback if parsing fails
+        build_string = "py3_0"
+    
+    # Get file hash and size
+    sha256, size = get_file_sha_and_size(wheel_path)
+    
+    # Create the conda package metadata
+    # For now, assume no dependencies as requested
+    depends = []
+    
+    # Add Python dependency if specified in metadata
+    if metadata['requires_python']:
+        depends.append(f"python {metadata['requires_python']}")
+    else:
+        depends.append("python")
+    
+    return CondaPackageMetadata(
+        filename=wheel_path.name,
+        build=build_string,
+        build_number=0,
+        depends=depends,
+        name=conda_name,
+        sha256=sha256,
+        version=metadata['version'] or version,
+        noarch="python",
+        subdir="noarch",
+        size=size,
+        timestamp=0,
+    )
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate conda repodata from wheels.")
     parser.add_argument(
@@ -173,13 +310,6 @@ if __name__ == "__main__":
     print(f"Found {len(matching_wheels)} matching wheels:")
     for wheel in matching_wheels:
         print(f"\nWheel: {wheel}")
-        metadata = extract_wheel_metadata(wheel)
-        print(f"  Name: {metadata['name']}")
-        print(f"  Version: {metadata['version']}")
-        print(f"  Requires-Python: {metadata['requires_python']}")
-        if metadata['requires_dist']:
-            print(f"  Requires-Dist:")
-            for req in metadata['requires_dist']:
-                print(f"    {req}")
-        else:
-            print(f"  Requires-Dist: None")
+        repodata = repodata_for_package(wheel)
+        print(f"Repodata entry:")
+        print(json.dumps(repodata.repodata_entry, indent=2))
