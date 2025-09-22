@@ -249,6 +249,49 @@ def write_repodata(repodata: Dict[str, Dict[Any, Any]], repo_base_path: str):
         write_as_json_to_file(f"{repo_base_path}/{platform}/repodata.json", subdir_data)
 
 
+def parse_requires_dist(requires_dist: List[str]) -> List[str]:
+    """Parse requires_dist dependencies and convert to conda dependencies.
+    
+    Args:
+        requires_dist: List of requirement strings from wheel metadata
+        
+    Returns:
+        List of conda dependency strings
+    """
+    conda_deps = []
+    
+    for req_str in requires_dist:
+        try:
+            req = Requirement(req_str)
+            
+            # Skip dependencies with extras (conditional dependencies)
+            if req.extras:
+                print(f"Warning: Skipping dependency with extras: {req_str}")
+                continue
+            
+            # Skip dependencies with markers (conditional dependencies)
+            if req.marker:
+                print(f"Warning: Skipping conditional dependency: {req_str}")
+                continue
+            
+            # Convert PyPI name to conda name
+            conda_name = py_to_conda_name(req.name)
+            
+            # Create conda dependency string
+            if req.specifier:
+                conda_dep = f"{conda_name} {req.specifier}".strip()
+            else:
+                conda_dep = conda_name
+            
+            conda_deps.append(conda_dep)
+            
+        except Exception as e:
+            print(f"Warning: Could not parse dependency '{req_str}': {e}")
+            continue
+    
+    return conda_deps
+
+
 def repodata_for_package(wheel_path: Path) -> CondaPackageMetadata:
     """Generate conda repodata entry for a wheel package.
     
@@ -281,7 +324,6 @@ def repodata_for_package(wheel_path: Path) -> CondaPackageMetadata:
     sha256, size = get_file_sha_and_size(wheel_path)
     
     # Create the conda package metadata
-    # For now, assume no dependencies as requested
     depends = []
     
     # Add Python dependency if specified in metadata
@@ -289,6 +331,11 @@ def repodata_for_package(wheel_path: Path) -> CondaPackageMetadata:
         depends.append(f"python {metadata['requires_python']}")
     else:
         depends.append("python")
+    
+    # Parse and add other dependencies
+    if metadata['requires_dist']:
+        conda_deps = parse_requires_dist(metadata['requires_dist'])
+        depends.extend(conda_deps)
     
     return CondaPackageMetadata(
         filename=wheel_path.name,
