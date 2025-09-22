@@ -11,8 +11,10 @@ from packaging.requirements import Requirement
 from packaging.specifiers import SpecifierSet
 from packaging.utils import parse_wheel_filename, canonicalize_name
 from packaging.metadata import Metadata
+from packaging.markers import Marker
 from typing import Dict, List, Optional, Any
 import requests
+import markerpry
 
 
 @lru_cache(maxsize=1)
@@ -43,6 +45,149 @@ def py_to_conda_name(name: str) -> str:
     mapping = get_py_to_conda_mapping()
     conda_name = mapping.get(canonical_name, canonical_name)
     return conda_name
+
+
+# Environment definitions for marker evaluation
+GENERIC_ENV = {
+    "implementation_name": ("cpython", ),
+    "platform_python_implementation": ("CPython", ),
+}
+
+PLATFORM_SPECIFIC_ENV = {
+    "osx-arm64": {
+        "implementation_name": ("cpython", ),
+        "os_name": ("posix", ),
+        "platform_system": ("Darwin", ),
+        "platform_python_implementation": ("CPython", ),
+        "platform_machine": ("arm64", ),
+        "sys_platform": ("darwin", ),
+    },
+}
+
+# Metapackage storage
+META_PKGS = {}
+META_SHA_256 = None
+META_SIZE = None
+HASH_LENGTH = 8
+
+
+def get_file_sha_and_size(file_path: Path) -> tuple[str, int]:
+    """Get SHA256 hash and size of a file."""
+    sha256_hash = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+    file_size = os.path.getsize(file_path)
+    return sha256_hash.hexdigest(), file_size
+
+
+def register_metapackages(pkg_name, pos_deps, neg_deps):
+    """Register metapackages for conditional dependencies."""
+    global META_SHA_256, META_SIZE
+    if META_SHA_256 is None or META_SIZE is None:
+        project_path = Path(__file__).parent.parent / "sample-1.0-0.tar.bz2"
+        if not project_path.exists():
+            raise FileNotFoundError(f"Could not find {project_path}")
+        META_SHA_256, META_SIZE = get_file_sha_and_size(project_path)
+    short_hash = META_SHA_256[:8]
+    pos_pkg_name = f"{pkg_name}-1.1-true_1_{short_hash}.tar.bz2"
+    META_PKGS[pos_pkg_name] = {
+        "build": f"true_1_{short_hash}",
+        "build_number": 1,
+        "depends": pos_deps,
+        "name": pkg_name,
+        "noarch": "generic",
+        "sha256": META_SHA_256,
+        "size": META_SIZE,
+        "subdir": "noarch",
+        "timestamp": 0,
+        "version": "1.1",
+    }
+    neg_pkg_name = f"{pkg_name}-0.1-false_0_{short_hash}.tar.bz2"
+    META_PKGS[neg_pkg_name] = {
+        "build": f"false_0_{short_hash}",
+        "build_number": 0,
+        "depends": neg_deps,
+        "name": pkg_name,
+        "noarch": "generic",
+        "sha256": META_SHA_256,
+        "size": META_SIZE,
+        "subdir": "noarch",
+        "timestamp": 0,
+        "version": "0.1",
+    }
+
+
+def make_metapkgs(
+        conda_deps: list[str],
+        marker: Marker,
+        platform: str,
+        requested_extra: Optional[str],
+    ) -> list[str]:
+    """Create metapackages for conditional dependencies."""
+    tree = markerpry.parse_marker(marker)
+    if requested_extra is not None:
+        tree = tree.evaluate({"extra": (requested_extra, )})
+    if "extra" in tree:
+        return []
+    
+    # evaluate with CPython environment
+    tree = tree.evaluate(GENERIC_ENV)
+    if tree.resolved:
+        if tree:
+            return conda_deps
+        return []
+    
+    # handle platform specific evaluation when possible
+    if (
+        "os_name" in tree
+        or "platform_system" in tree
+        or "sys_platform" in tree
+        or "platform_machine" in tree
+    ):
+        if platform == "noarch":
+            raise ValueError(f"dependency {conda_deps} is arch-specific but platform is noarch")
+        env = PLATFORM_SPECIFIC_ENV.get(platform, {})
+        tree = tree.evaluate(env)
+        if tree.resolved:
+            if not tree:
+                return []
+            else:
+                # No metapackage is needed, we can just treat this as a normal dependency
+                return conda_deps
+    
+    # create meta-packages to encode conditional
+    dep_hash_str = "&".join(d for d in conda_deps)
+    dep_hash = hashlib.sha1(dep_hash_str.encode()).hexdigest()[:HASH_LENGTH]
+    marker_hash = hashlib.sha1(str(marker).encode()).hexdigest()[:HASH_LENGTH]
+    meta_pkg_name = f"_c_{dep_hash}_{marker_hash}"
+    
+    if isinstance(tree, markerpry.OperatorNode):
+        op = tree.operator
+        variable = tree.left
+        value = tree.right
+        
+        MIRROR_OP = {
+            ">=": "<",
+            ">": "<=",
+            "<=": ">",
+            "<": ">=",
+            "==": "!=",
+            "!=": "==",
+        }
+        
+        nop = MIRROR_OP[op]
+        if str(variable) == "python_version" or str(variable) == "python_full_version":
+            positive_dep = f"python {op}{value}"
+            negative_dep = f"python {nop}{value}"
+            positive_deps = [positive_dep, *conda_deps]
+            negative_deps = [negative_dep]
+            register_metapackages(meta_pkg_name, positive_deps, negative_deps)
+            return [meta_pkg_name]
+        else:
+            raise NotImplementedError(f"unsupported marker: {marker}")
+    
+    return conda_deps
 
 
 @dataclass
@@ -209,16 +354,6 @@ def extract_wheel_metadata(wheel_path: Path) -> Dict[str, Optional[str]]:
     return metadata
 
 
-def get_file_sha_and_size(file_path: Path) -> tuple[str, int]:
-    """Get SHA256 hash and size of a file."""
-    sha256_hash = hashlib.sha256()
-    with open(file_path, "rb") as f:
-        for byte_block in iter(lambda: f.read(4096), b""):
-            sha256_hash.update(byte_block)
-    file_size = os.path.getsize(file_path)
-    return sha256_hash.hexdigest(), file_size
-
-
 def empty_repodata(subdir: str):
     """Create an empty repodata structure for a subdirectory."""
     return {
@@ -249,11 +384,12 @@ def write_repodata(repodata: Dict[str, Dict[Any, Any]], repo_base_path: str):
         write_as_json_to_file(f"{repo_base_path}/{platform}/repodata.json", subdir_data)
 
 
-def parse_requires_dist(requires_dist: List[str]) -> List[str]:
+def parse_requires_dist(requires_dist: List[str], platform: str) -> List[str]:
     """Parse requires_dist dependencies and convert to conda dependencies.
     
     Args:
         requires_dist: List of requirement strings from wheel metadata
+        platform: Target platform for dependency resolution
         
     Returns:
         List of conda dependency strings
@@ -269,11 +405,6 @@ def parse_requires_dist(requires_dist: List[str]) -> List[str]:
                 print(f"Warning: Skipping dependency with extras: {req_str}")
                 continue
             
-            # Skip dependencies with markers (conditional dependencies)
-            if req.marker:
-                print(f"Warning: Skipping conditional dependency: {req_str}")
-                continue
-            
             # Convert PyPI name to conda name
             conda_name = py_to_conda_name(req.name)
             
@@ -283,7 +414,15 @@ def parse_requires_dist(requires_dist: List[str]) -> List[str]:
             else:
                 conda_dep = conda_name
             
-            conda_deps.append(conda_dep)
+            # Handle conditional dependencies with markers
+            if req.marker:
+                try:
+                    conda_deps.extend(make_metapkgs([conda_dep], req.marker, platform, None))
+                except Exception as e:
+                    print(f"Warning: Could not process conditional dependency '{req_str}': {e}")
+                    continue
+            else:
+                conda_deps.append(conda_dep)
             
         except Exception as e:
             print(f"Warning: Could not parse dependency '{req_str}': {e}")
@@ -292,11 +431,12 @@ def parse_requires_dist(requires_dist: List[str]) -> List[str]:
     return conda_deps
 
 
-def repodata_for_package(wheel_path: Path) -> CondaPackageMetadata:
+def repodata_for_package(wheel_path: Path, platform: str) -> CondaPackageMetadata:
     """Generate conda repodata entry for a wheel package.
     
     Args:
         wheel_path: Path to the wheel file
+        platform: Target platform for dependency resolution
         
     Returns:
         CondaPackageMetadata object representing the conda package
@@ -334,7 +474,7 @@ def repodata_for_package(wheel_path: Path) -> CondaPackageMetadata:
     
     # Parse and add other dependencies
     if metadata['requires_dist']:
-        conda_deps = parse_requires_dist(metadata['requires_dist'])
+        conda_deps = parse_requires_dist(metadata['requires_dist'], platform)
         depends.extend(conda_deps)
     
     return CondaPackageMetadata(
@@ -346,10 +486,67 @@ def repodata_for_package(wheel_path: Path) -> CondaPackageMetadata:
         sha256=sha256,
         version=metadata['version'] or version,
         noarch="python",
-        subdir="noarch",
+        subdir=platform,
         size=size,
         timestamp=0,
     )
+
+
+def has_platform_specific_dependencies(requires_dist: List[str]) -> bool:
+    """Check if a package has conditional dependencies that require platform-specific evaluation.
+    
+    Args:
+        requires_dist: List of requirement strings from wheel metadata
+        
+    Returns:
+        True if the package has platform-specific conditional dependencies
+    """
+    for req_str in requires_dist:
+        try:
+            req = Requirement(req_str)
+            if req.marker:
+                # Parse the marker to check for platform-specific conditions
+                tree = markerpry.parse_marker(req.marker)
+                if (
+                    "os_name" in tree
+                    or "platform_system" in tree
+                    or "sys_platform" in tree
+                    or "platform_machine" in tree
+                ):
+                    return True
+        except Exception:
+            continue
+    return False
+
+
+def separate_wheels_by_platform(wheels: List[Path]) -> Dict[str, List[Path]]:
+    """Separate wheels into noarch and platform-specific lists based on conditional dependencies.
+    
+    Args:
+        wheels: List of wheel files to process
+        
+    Returns:
+        Dictionary mapping platform names to lists of wheel files
+    """
+    noarch_wheels = []
+    platform_wheels = []
+    
+    for wheel_path in wheels:
+        try:
+            metadata = extract_wheel_metadata(wheel_path)
+            if metadata['requires_dist'] and has_platform_specific_dependencies(metadata['requires_dist']):
+                platform_wheels.append(wheel_path)
+            else:
+                noarch_wheels.append(wheel_path)
+        except Exception as e:
+            print(f"Warning: Could not process wheel {wheel_path.name}: {e}")
+            # Default to noarch if we can't determine
+            noarch_wheels.append(wheel_path)
+    
+    return {
+        "noarch": noarch_wheels,
+        "osx-arm64": platform_wheels
+    }
 
 
 if __name__ == "__main__":
@@ -394,26 +591,47 @@ if __name__ == "__main__":
     
     print(f"Found {len(matching_wheels)} matching wheels")
     
+    # Separate wheels by platform based on conditional dependencies
+    wheels_by_platform = separate_wheels_by_platform(matching_wheels)
+    
+    print(f"Noarch wheels: {len(wheels_by_platform['noarch'])}")
+    print(f"Platform-specific wheels: {len(wheels_by_platform['osx-arm64'])}")
+    
     # Create repodata structure
     repodata = {}
-    platform = "noarch"  # All wheels are noarch
     
-    # Create empty repodata for the platform
-    subdir_data = empty_repodata(platform)
-    packages = {}
-    
-    # Process each wheel and add to packages
-    for wheel in matching_wheels:
-        print(f"Processing: {wheel.name}")
-        conda_pkg = repodata_for_package(wheel)
-        packages[conda_pkg.filename] = conda_pkg.repodata_entry
-    
-    # Add packages to repodata
-    subdir_data["packages"] = packages
-    repodata[platform] = subdir_data
+    # Process each platform
+    for platform, wheels in wheels_by_platform.items():
+        if not wheels:
+            continue
+            
+        print(f"Processing {len(wheels)} wheels for platform: {platform}")
+        
+        # Create empty repodata for the platform
+        subdir_data = empty_repodata(platform)
+        packages = {}
+        
+        # Process each wheel and add to packages
+        for wheel in wheels:
+            print(f"Processing: {wheel.name} for {platform}")
+            try:
+                conda_pkg = repodata_for_package(wheel, platform)
+                packages[conda_pkg.filename] = conda_pkg.repodata_entry
+            except Exception as e:
+                print(f"Error processing {wheel.name} for {platform}: {e}")
+                continue
+        
+        # Add metapackages for this platform
+        platform_metapackages = {k: v for k, v in META_PKGS.items() if v["subdir"] == platform}
+        packages.update(platform_metapackages)
+        
+        # Add packages to repodata
+        subdir_data["packages"] = packages
+        repodata[platform] = subdir_data
     
     # Write repodata to files
     print(f"Writing repodata to {args.output_dir}")
     write_repodata(repodata, args.output_dir)
     
-    print(f"Successfully generated repodata for {len(packages)} packages")
+    total_packages = sum(len(data["packages"]) for data in repodata.values())
+    print(f"Successfully generated repodata for {total_packages} packages across {len(repodata)} platforms")
