@@ -162,32 +162,66 @@ def make_metapkgs(
     marker_hash = hashlib.sha1(str(marker).encode()).hexdigest()[:HASH_LENGTH]
     meta_pkg_name = f"_c_{dep_hash}_{marker_hash}"
     
-    if isinstance(tree, markerpry.OperatorNode):
-        op = tree.operator
-        variable = tree.left
-        value = tree.right
-        
-        MIRROR_OP = {
-            ">=": "<",
-            ">": "<=",
-            "<=": ">",
-            "<": ">=",
-            "==": "!=",
-            "!=": "==",
-        }
-        
-        nop = MIRROR_OP[op]
-        if str(variable) == "python_version" or str(variable) == "python_full_version":
-            positive_dep = f"python {op}{value}"
-            negative_dep = f"python {nop}{value}"
-            positive_deps = [positive_dep, *conda_deps]
-            negative_deps = [negative_dep]
-            register_metapackages(meta_pkg_name, positive_deps, negative_deps)
-            return [meta_pkg_name]
-        else:
-            raise NotImplementedError(f"unsupported marker: {marker}")
+    MIRROR_OP = {
+        ">": "<=",
+        "<": ">=",
+        ">=": "<",
+        "<=": ">",
+        "==": "!=",
+        "!=": "==",
+    }
     
-    return conda_deps
+    if isinstance(tree, markerpry.OperatorNode):
+        right, left = tree.right, tree.left
+        if (
+            isinstance(right, markerpry.ExpressionNode)
+            and right.lhs == "python_version"
+            and isinstance(left, markerpry.ExpressionNode)
+            and left.lhs == "python_version"
+        ):
+            op1, value1 = left.comparator, left.rhs
+            op2, value2 = right.comparator, right.rhs
+            nop1 = MIRROR_OP[str(op1)]
+            nop2 = MIRROR_OP[str(op2)]
+            if tree.operator == "and":
+                positive_deps = [
+                    f"python {op1}{value1}",
+                    f"python {op2}{value2}",
+                    *conda_deps,
+                ]
+                negative_deps = [f"python {nop1}{value1}", f"python {nop2}{value2}"]
+                register_metapackages(meta_pkg_name, positive_deps, negative_deps)
+                return [meta_pkg_name]
+            elif tree.operator == "or":
+                return make_metapkgs(
+                    conda_deps,
+                    Marker(str(left)),
+                    platform,
+                    requested_extra,
+                ) + make_metapkgs(
+                    conda_deps,
+                    Marker(str(right)),
+                    platform,
+                    requested_extra,
+                )
+        else:
+            # Use De Morgan's laws to express:
+            # OR will produce two packages, one for each clause
+            # AND will produce a single package that depends on both clauses
+            raise NotImplementedError(f"complex marker: {tree}")
+    assert isinstance(tree, markerpry.ExpressionNode)
+    variable, op, value = tree.lhs, tree.comparator, tree.rhs
+    op = str(op)
+    nop = MIRROR_OP[op]
+    if str(variable) == "python_version" or str(variable) == "python_full_version":
+        positive_dep = f"python {op}{value}"
+        negative_dep = f"python {nop}{value}"
+        positive_deps = [positive_dep, *conda_deps]
+        negative_deps = [negative_dep]
+        register_metapackages(meta_pkg_name, positive_deps, negative_deps)
+        return [meta_pkg_name]
+    else:
+        raise NotImplementedError(f"unsupported marker: {marker}")
 
 
 @dataclass
@@ -346,7 +380,11 @@ def extract_wheel_metadata(wheel_path: Path) -> Dict[str, Optional[str]]:
             metadata['name'] = mdata.name
             metadata['version'] = str(mdata.version) if mdata.version else None
             metadata['requires_dist'] = [str(req) for req in mdata.requires_dist] if mdata.requires_dist else None
-            metadata['requires_python'] = str(mdata.requires_python) if mdata.requires_python else None
+            # Handle empty or invalid requires_python gracefully
+            if mdata.requires_python and str(mdata.requires_python).strip() and str(mdata.requires_python) != '<empty>':
+                metadata['requires_python'] = str(mdata.requires_python)
+            else:
+                metadata['requires_python'] = None
                         
     except Exception as e:
         print(f"Error reading metadata from {wheel_path.name}: {e}")
@@ -400,10 +438,9 @@ def parse_requires_dist(requires_dist: List[str], platform: str) -> List[str]:
         try:
             req = Requirement(req_str)
             
-            # Skip dependencies with extras (conditional dependencies)
-            if req.extras:
-                print(f"Warning: Skipping dependency with extras: {req_str}")
-                continue
+            # TODO: Handle dependencies with extras with recursive wheel parsing
+            # if req.extras:
+                # print(f"Warning: Dependency has extras, using base name only: {req_str}")
             
             # Convert PyPI name to conda name
             conda_name = py_to_conda_name(req.name)
@@ -612,8 +649,9 @@ if __name__ == "__main__":
         packages = {}
         
         # Process each wheel and add to packages
-        for wheel in wheels:
-            print(f"Processing: {wheel.name} for {platform}")
+        for i, wheel in enumerate(wheels, 1):
+            if i % 100 == 0 or i == len(wheels):
+                print(f"Progress: {i}/{len(wheels)} wheels processed for {platform}")
             try:
                 conda_pkg = repodata_for_package(wheel, platform)
                 packages[conda_pkg.filename] = conda_pkg.repodata_entry
@@ -622,7 +660,8 @@ if __name__ == "__main__":
                 continue
         
         # Add metapackages for this platform
-        platform_metapackages = {k: v for k, v in META_PKGS.items() if v["subdir"] == platform}
+        # Metapackages are noarch, so include them in all platforms
+        platform_metapackages = {k: v for k, v in META_PKGS.items() if v["subdir"] == platform or v["subdir"] == "noarch"}
         packages.update(platform_metapackages)
         
         # Add packages to repodata
