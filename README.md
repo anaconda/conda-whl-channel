@@ -1,8 +1,8 @@
-## conda-whl-support
+## conda-whl-channel
 
 ## Examples
 
-Create a conda environment with conda-whl-support:
+Create a conda environment with conda-whl-channel:
 
 ```
 conda create --prefix ./demo_env -c jjhelmus/label/conda_whl_support conda-whl-support conda=24.11.3
